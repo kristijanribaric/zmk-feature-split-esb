@@ -1,0 +1,23 @@
+# Copyright 2026 Roman Kuzmitskii (@damex)
+# SPDX-License-Identifier: MIT
+
+description: |
+  Shared ESB link identity for a single-peripheral ZMK ESB split. The central and
+  the peripheral must declare identical values to pair. Place this node in a dtsi
+  included by both sides.
+
+compatible: "zmk,esb"
+
+properties:
+  base-address:
+    type: uint8-array
+    required: true
+    description: 4-byte ESB base address for pipe 0.
+  prefix:
+    type: int
+    required: true
+    description: 1-byte address prefix for pipe 0.
+  rf-channel:
+    type: int
+    required: true
+    description: RF channel, 2400 + N MHz (0-100).
