@@ -1,0 +1,39 @@
+diff --git a/subsys/net/openthread/Kconfig.defconfig b/subsys/net/openthread/Kconfig.defconfig
+--- a/subsys/net/openthread/Kconfig.defconfig
++++ b/subsys/net/openthread/Kconfig.defconfig
+@@ -38,6 +38,7 @@ config MBEDTLS_SSL_CLI_ALLOW_WEAK_CERTIFICATE_VERIFICATION_WITHOUT_HOSTNAME
+ endif
+
+ config OPENTHREAD_PLATFORM_PKT_TXTIME
++	bool ""
+ 	default y if NET_PKT_TXTIME
+ 	default y if !NET_L2_OPENTHREAD
+
+@@ -62,9 +63,11 @@ endif # !NET_L2_OPENTHREAD
+ # In nrf-sdk, the init priority should be set to 90 to ensure that the OpenThread stack is
+ # initialized after MPSL.
+ config OPENTHREAD_SYS_INIT_PRIORITY
++	int ""
+ 	default 90
+
+ config OPENTHREAD_PLATFORM_CARRIER_FUNCTIONS
++	bool ""
+ 	default y if OPENTHREAD_DIAG && IEEE802154_CARRIER_FUNCTIONS
+ 	default y if OPENTHREAD_DIAG && NRF5_CARRIER_FUNCTIONS
+
+@@ -250,6 +253,7 @@ config ZMS_LOOKUP_CACHE_SIZE
+ 	default 512
+
+ config ZMS_LOOKUP_CACHE_FOR_SETTINGS
++	bool ""
+ 	default y
+
+ endif
+@@ -266,6 +270,7 @@ config NVS_LOOKUP_CACHE_SIZE
+ 	default 512
+
+ config NVS_LOOKUP_CACHE_FOR_SETTINGS
++	bool ""
+ 	default y
+
+ endif

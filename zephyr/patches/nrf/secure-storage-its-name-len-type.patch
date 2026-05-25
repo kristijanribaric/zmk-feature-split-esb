@@ -1,0 +1,11 @@
+diff --git a/subsys/secure_storage/compatibility/Kconfig b/subsys/secure_storage/compatibility/Kconfig
+--- a/subsys/secure_storage/compatibility/Kconfig
++++ b/subsys/secure_storage/compatibility/Kconfig
+@@ -73,6 +73,7 @@ config PSA_INTERNAL_TRUSTED_STORAGE_PREFIX
+ 	default "its"
+
+ config SECURE_STORAGE_ITS_STORE_SETTINGS_NAME_MAX_LEN
++	int ""
+ 	default 20
+
+ endif # SECURE_STORAGE_ITS_STORE_IMPLEMENTATION_SETTINGS

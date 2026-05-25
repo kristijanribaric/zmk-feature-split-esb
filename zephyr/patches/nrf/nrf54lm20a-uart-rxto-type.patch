@@ -1,0 +1,11 @@
+diff --git a/soc/nordic/nrf54l/Kconfig.defconfig.nrf54lm20a_enga_cpuapp b/soc/nordic/nrf54l/Kconfig.defconfig.nrf54lm20a_enga_cpuapp
+--- a/soc/nordic/nrf54l/Kconfig.defconfig.nrf54lm20a_enga_cpuapp
++++ b/soc/nordic/nrf54l/Kconfig.defconfig.nrf54lm20a_enga_cpuapp
+@@ -9,6 +9,7 @@ config NUM_IRQS
+ 	default 290
+
+ config UART_NRFX_UARTE_SPURIOUS_RXTO_WORKAROUND
++	bool ""
+ 	default y
+
+ endif # SOC_NRF54LM20A_ENGA_CPUAPP
