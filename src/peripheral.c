@@ -20,7 +20,6 @@ BUILD_ASSERT(sizeof(struct zmk_split_transport_peripheral_event) <= CONFIG_ZMK_S
 BUILD_ASSERT(sizeof(struct zmk_split_transport_central_command) <= CONFIG_ZMK_SPLIT_ESB_MAX_PAYLOAD,
              "central command does not fit in one ESB payload; raise ZMK_SPLIT_ESB_MAX_PAYLOAD");
 
-static zmk_split_transport_peripheral_status_changed_cb_t status_callback;
 static bool transport_enabled;
 
 static bool event_wants_ack(const struct zmk_split_transport_peripheral_event *event) {
@@ -53,7 +52,7 @@ static struct zmk_split_transport_status peripheral_get_status(void) {
 
 static int
 peripheral_set_status_callback(zmk_split_transport_peripheral_status_changed_cb_t callback) {
-    status_callback = callback;
+    ARG_UNUSED(callback);
     return 0;
 }
 

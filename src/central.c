@@ -22,7 +22,6 @@ BUILD_ASSERT(sizeof(struct zmk_split_transport_central_command) <= CONFIG_ZMK_SP
 
 #define ESB_PERIPHERAL_SOURCE 0
 
-static zmk_split_transport_central_status_changed_cb_t status_callback;
 static bool transport_enabled;
 
 static int central_send_command(uint8_t source, struct zmk_split_transport_central_command cmd) {
@@ -51,7 +50,7 @@ static struct zmk_split_transport_status central_get_status(void) {
 
 static int
 central_set_status_callback(zmk_split_transport_central_status_changed_cb_t callback) {
-    status_callback = callback;
+    ARG_UNUSED(callback);
     return 0;
 }
 
