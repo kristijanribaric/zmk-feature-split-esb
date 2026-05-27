@@ -77,3 +77,25 @@ from BLE/wired counts). Events still deliver, but:
 
 - Commands to the peripheral need `BEHAVIOR_LOCALITY_EVENT_SOURCE`, source = its id.
 - No `BEHAVIOR_LOCALITY_GLOBAL` broadcast or HID-indicator forwarding (both index that count).
+
+## License
+
+This module is MIT.
+
+Workspace dependencies pulled by `west.yml`. Each keeps its own license:
+
+| Dependency | License |
+|---|---|
+| ZMK | MIT |
+| Zephyr | Apache-2.0 |
+| sdk-nrf | LicenseRef-Nordic-5-Clause |
+| nrfxlib | LicenseRef-Nordic-5-Clause (parts this module's builds touch: MPSL, softdevice_controller) |
+
+The `LicenseRef-Nordic-5-Clause` parts restrict use to Nordic hardware.
+
+For an ESB-only build the link symbols come from sdk-nrf.
+nrfxlib is still cloned into your workspace and gets linked if you also enable BLE.
+
+Patches under `zephyr/patches/nrf/` modify sdk-nrf files (Nordic-licensed) and
+apply on the user side via `west patch`. They don't redistribute Nordic source.
+`patches.yml` lists upstream versions after which each patch can be dropped.
