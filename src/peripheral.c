@@ -4,9 +4,13 @@
 /*
  * ZMK ESB split peripheral.
  */
+#define DT_DRV_COMPAT zmk_split_esb
+
+#include <zephyr/devicetree.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/util.h>
 
 #include <zmk/split/transport/peripheral.h>
 #include <zmk/split/transport/types.h>
@@ -22,14 +26,42 @@ BUILD_ASSERT(sizeof(struct zmk_split_transport_central_command) <= CONFIG_ZMK_SP
 
 static bool transport_enabled;
 
-static bool event_wants_ack(const struct zmk_split_transport_peripheral_event *event) {
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_ESB_LOSSY_INPUT)
-    /* Motion is high-rate and self-correcting: drop the ACK for lower latency. */
-    return event->type != ZMK_SPLIT_TRANSPORT_PERIPHERAL_EVENT_TYPE_INPUT_EVENT;
+#if DT_INST_NODE_HAS_PROP(0, lossy_codes)
+
+#define LOSSY_DT_CELL(node_id, prop, idx) DT_PROP_BY_IDX(node_id, prop, idx)
+
+static const uint32_t lossy_dt_cells[] = {
+    DT_INST_FOREACH_PROP_ELEM_SEP(0, lossy_codes, LOSSY_DT_CELL, (,))
+};
+
+BUILD_ASSERT((ARRAY_SIZE(lossy_dt_cells) % 2) == 0,
+             "zmk,split-esb lossy-codes must be (type, code) pairs");
+
+static bool input_is_lossy(uint8_t input_type, uint16_t input_code) {
+    for (size_t i = 0; i < ARRAY_SIZE(lossy_dt_cells); i += 2) {
+        if ((uint8_t)lossy_dt_cells[i] == input_type
+            && (uint16_t)lossy_dt_cells[i + 1] == input_code) {
+            return true;
+        }
+    }
+    return false;
+}
+
 #else
-    ARG_UNUSED(event);
-    return true;
-#endif
+
+static bool input_is_lossy(uint8_t input_type, uint16_t input_code) {
+    ARG_UNUSED(input_type);
+    ARG_UNUSED(input_code);
+    return false;
+}
+
+#endif /* DT_INST_NODE_HAS_PROP(0, lossy_codes) */
+
+static bool event_wants_ack(const struct zmk_split_transport_peripheral_event *event) {
+    if (event->type != ZMK_SPLIT_TRANSPORT_PERIPHERAL_EVENT_TYPE_INPUT_EVENT) {
+        return true;
+    }
+    return !input_is_lossy(event->data.input_event.type, event->data.input_event.code);
 }
 
 static int peripheral_report_event(const struct zmk_split_transport_peripheral_event *event) {

@@ -187,9 +187,8 @@ int esb_link_init(esb_link_rx_cb_t rx_cb) {
     config.crc = ESB_CRC_16BIT;
     config.retransmit_count = CONFIG_ZMK_SPLIT_ESB_RETRANSMIT_COUNT;
     config.retransmit_delay = CONFIG_ZMK_SPLIT_ESB_RETRANSMIT_DELAY_US;
-    /* With ZMK_SPLIT_ESB_LOSSY_INPUT the 1 kHz motion stream is no-ack, so only low-rate
-     * button packets get ACKed (and those ACKs carry the reverse channel). Acking
-     * every packet floods the link and drops button releases. */
+    /* Per-packet ACK is controlled by event_wants_ack() in peripheral.c; the
+     * reverse channel rides the ACKs that the peripheral does request. */
     config.selective_auto_ack = true;
     config.tx_mode = ESB_TXMODE_AUTO;
 

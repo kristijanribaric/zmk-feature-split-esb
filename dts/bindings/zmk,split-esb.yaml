@@ -21,3 +21,11 @@ properties:
     type: int
     required: true
     description: RF channel, 2400 + N MHz (0-100).
+  lossy-codes:
+    type: array
+    description: |
+      Input axes the peripheral sends without ACK. Each entry is two cells, an
+      INPUT_EV_* type and its INPUT_*_<NAME> code, e.g. <INPUT_EV_REL INPUT_REL_X>,
+      <INPUT_EV_REL INPUT_REL_Y>. Reserve for high-rate, self-correcting axes
+      (pointer motion); buttons, wheel detents, SYN markers, sensor and battery
+      events stay ACK'd regardless. Omit for fully lossless link.

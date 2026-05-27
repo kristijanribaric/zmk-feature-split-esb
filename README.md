@@ -53,6 +53,20 @@ esb_link: esb_link {
 | `base-address` | 4-byte bytestring `[..]`, pipe 0 |
 | `prefix` | 1 byte, pipe 0 |
 | `rf-channel` | 0-100 (2400 + N MHz) |
+| `lossy-codes` | optional list of `<INPUT_EV_* code>` pairs sent without ACK |
+
+Lossy-codes lists the input axes the peripheral fires-and-forgets. Reserve for
+high-rate, self-correcting axes (pointer motion). Buttons, wheel detents, SYN
+markers, sensor and battery events stay ACK'd regardless. Omitted = fully
+lossless link. Example for a mouse:
+```dts
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+&esb_link {
+    lossy-codes
+        = <INPUT_EV_REL INPUT_REL_X>
+        , <INPUT_EV_REL INPUT_REL_Y>;
+};
+```
 
 Tunables (Kconfig, defaults shown):
 
@@ -62,7 +76,6 @@ Tunables (Kconfig, defaults shown):
 | `ZMK_SPLIT_ESB_TX_POWER_DBM` | 0 | boot TX power; raise for range |
 | `ZMK_SPLIT_ESB_RETRANSMIT_COUNT` | 3 | retransmits before drop |
 | `ZMK_SPLIT_ESB_RETRANSMIT_DELAY_US` | 600 | delay between retransmits |
-| `ZMK_SPLIT_ESB_LOSSY_INPUT` | n | input without ACK (lower latency) |
 | `ZMK_SPLIT_ESB_MAX_PAYLOAD` | 48 | max on-air bytes (>= largest split msg) |
 | `ZMK_SPLIT_ESB_RX_QUEUE_SIZE` | 16 | RX packet queue depth |
 | `ZMK_SPLIT_ESB_REPLY_QUEUE_SIZE` | 8 | central reverse-channel queue depth |

@@ -42,15 +42,6 @@ config ZMK_SPLIT_ESB_RETRANSMIT_DELAY_US
     int "Delay between retransmits (microseconds)"
     default 600
 
-config ZMK_SPLIT_ESB_LOSSY_INPUT
-    bool "Send pointer/input events without ACK (lower latency, lossy)"
-    default n
-    help
-      Pointer motion is high-rate and self-correcting, so a dropped sample is
-      invisible and skipping the ACK lowers latency and congestion. Trade-off: the
-      central->peripheral reverse channel rides on ACKs, so with this enabled the
-      reverse channel is served only by the ACK'd (non-input) packets.
-
 config ZMK_SPLIT_ESB_MAX_PAYLOAD
     int "Max on-air payload bytes"
     default 48
