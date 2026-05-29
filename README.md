@@ -56,9 +56,10 @@ esb_link: esb_link {
 | `lossy-codes` | optional list of `<INPUT_EV_* code>` pairs sent without ACK |
 
 Lossy-codes lists the input axes the peripheral fires-and-forgets. Reserve for
-high-rate, self-correcting axes (pointer motion). Buttons, wheel detents, SYN
-markers, sensor and battery events stay ACK'd regardless. Omitted = fully
-lossless link. Example for a mouse:
+high-rate, self-correcting axes (pointer motion). Non-input split events
+(key-position, sensor, battery) are always ACK'd; every input event is ACK'd
+unless its (type, code) is listed here. Omitted = fully lossless link. Example
+for a mouse:
 ```dts
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 &esb_link {
