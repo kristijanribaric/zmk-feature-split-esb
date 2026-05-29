@@ -11,6 +11,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/spsc_lockfree.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/clock_control/nrf_clock_control.h>
@@ -45,9 +46,15 @@ struct esb_link_packet {
     uint8_t data[CONFIG_ZMK_SPLIT_ESB_MAX_PAYLOAD];
 };
 
-/* RX path: the radio ISR copies a payload here; a work item hands it to the role
- * layer in thread context. */
-K_MSGQ_DEFINE(rx_queue, sizeof(struct esb_link_packet), CONFIG_ZMK_SPLIT_ESB_RX_QUEUE_SIZE, 4);
+/* RX path: the radio ISR writes each payload straight into a lock-free SPSC ring
+ * (no irq_lock, zero-copy slot) and signals the dispatch thread, which hands
+ * packets to the role layer in thread context. Single producer (the ESB ISR),
+ * single consumer (rx_thread), as the SPSC contract requires. */
+SPSC_DEFINE(rx_spsc, struct esb_link_packet, CONFIG_ZMK_SPLIT_ESB_RX_QUEUE_SIZE);
+static K_SEM_DEFINE(rx_sem, 0, 1);
+static atomic_t rx_dropped;
+static K_THREAD_STACK_DEFINE(rx_thread_stack, CONFIG_ZMK_SPLIT_ESB_RX_THREAD_STACK_SIZE);
+static struct k_thread rx_thread;
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 /* Reverse-channel replies staged by a thread, drained into the ACK FIFO by the
@@ -57,16 +64,28 @@ K_MSGQ_DEFINE(reply_queue, sizeof(struct esb_link_packet), CONFIG_ZMK_SPLIT_ESB_
 
 static esb_link_rx_callback_t rx_callback;
 
-static void rx_work_handler(struct k_work *work) {
-    ARG_UNUSED(work);
-    struct esb_link_packet packet;
-    while (k_msgq_get(&rx_queue, &packet, K_NO_WAIT) == 0) {
-        if (rx_callback != NULL) {
-            rx_callback(packet.data, packet.length);
+/* Dedicated dispatch thread: drain the SPSC and hand each packet to the role
+ * layer. Off the shared system workqueue so a high RX rate isn't gated by
+ * unrelated work. */
+static void rx_thread_fn(void *unused_a, void *unused_b, void *unused_c) {
+    ARG_UNUSED(unused_a);
+    ARG_UNUSED(unused_b);
+    ARG_UNUSED(unused_c);
+    while (1) {
+        k_sem_take(&rx_sem, K_FOREVER);
+        struct esb_link_packet *packet;
+        while ((packet = spsc_consume(&rx_spsc)) != NULL) {
+            if (rx_callback != NULL) {
+                rx_callback(packet->data, packet->length);
+            }
+            spsc_release(&rx_spsc);
         }
     }
 }
-static K_WORK_DEFINE(rx_work, rx_work_handler);
+
+uint32_t esb_link_rx_dropped(void) {
+    return (uint32_t)atomic_get(&rx_dropped);
+}
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 /* Drain staged replies into the ACK FIFO so each rides the next ACK back to the
@@ -94,16 +113,18 @@ static void on_esb_event(const struct esb_evt *event) {
         bool received = false;
         struct esb_payload payload;
         while (esb_read_rx_payload(&payload) == 0) {
-            struct esb_link_packet packet;
-            packet.length = (uint8_t)MIN(payload.length, (int)sizeof(packet.data));
-            memcpy(packet.data, payload.data, packet.length);
-            if (k_msgq_put(&rx_queue, &packet, K_NO_WAIT) != 0) {
-                LOG_WRN("RX queue full, dropping packet");
+            struct esb_link_packet *slot = spsc_acquire(&rx_spsc);
+            if (slot == NULL) {
+                atomic_inc(&rx_dropped);
+                continue; /* ring full; keep draining the radio FIFO */
             }
+            slot->length = (uint8_t)MIN(payload.length, (int)sizeof(slot->data));
+            memcpy(slot->data, payload.data, slot->length);
+            spsc_produce(&rx_spsc);
             received = true;
         }
         if (received) {
-            k_work_submit(&rx_work);
+            k_sem_give(&rx_sem);
         }
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
         stage_pending_replies();
@@ -171,6 +192,9 @@ static int esb_link_radio_setup(void) {
 
 int esb_link_init(esb_link_rx_callback_t callback) {
     rx_callback = callback;
+    k_thread_create(&rx_thread, rx_thread_stack, K_THREAD_STACK_SIZEOF(rx_thread_stack),
+                    rx_thread_fn, NULL, NULL, NULL, CONFIG_ZMK_SPLIT_ESB_RX_THREAD_PRIORITY, 0,
+                    K_NO_WAIT);
 
     int error = hfclk_request();
     if (error) {

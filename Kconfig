@@ -49,8 +49,22 @@ config ZMK_SPLIT_ESB_MAX_PAYLOAD
       Must be >= the largest split message struct. A build assert checks this.
 
 config ZMK_SPLIT_ESB_RX_QUEUE_SIZE
-    int "Received-packet queue depth"
+    int "Received-packet ring depth (power of 2)"
     default 16
+    help
+      Lock-free SPSC ring between the radio ISR and the dispatch thread. Must be
+      a power of 2. Deep enough to ride out dispatch stalls at the RX rate.
+
+config ZMK_SPLIT_ESB_RX_THREAD_STACK_SIZE
+    int "RX dispatch thread stack size"
+    default 1536
+    help
+      The dispatch thread runs the role-layer RX callback (split event / command
+      handler), so it needs comparable stack to the work it replaced.
+
+config ZMK_SPLIT_ESB_RX_THREAD_PRIORITY
+    int "RX dispatch thread priority"
+    default 2
 
 config ZMK_SPLIT_ESB_REPLY_QUEUE_SIZE
     int "Central: pending reverse-channel command depth"
