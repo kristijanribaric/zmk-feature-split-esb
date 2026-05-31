@@ -33,6 +33,7 @@ static const uint16_t retransmit_count = DT_INST_PROP(0, retransmit_count);
 static const uint16_t retransmit_delay_us = DT_INST_PROP(0, retransmit_delay_us);
 static const bool use_fast_ramp_up = DT_INST_PROP(0, use_fast_ramp_up);
 static const uint8_t crc_bits = DT_INST_PROP(0, crc_bits);
+static const uint16_t bitrate_kbps = DT_INST_PROP(0, bitrate_kbps);
 BUILD_ASSERT(sizeof(base_address) == 4, "base-address must be exactly 4 bytes");
 
 static enum esb_crc esb_crc_from_bits(uint8_t bits) {
@@ -45,6 +46,17 @@ static enum esb_crc esb_crc_from_bits(uint8_t bits) {
         return ESB_CRC_16BIT;
     default:
         return ESB_CRC_16BIT;
+    }
+}
+
+static enum esb_bitrate esb_bitrate_from_kbps(uint16_t kbps) {
+    switch (kbps) {
+    case 1000:
+        return ESB_BITRATE_1MBPS;
+    case 2000:
+        return ESB_BITRATE_2MBPS;
+    default:
+        return ESB_BITRATE_2MBPS;
     }
 }
 
@@ -224,8 +236,7 @@ int esb_link_init(esb_link_rx_callback_t callback) {
     config.protocol = ESB_PROTOCOL_ESB_DPL;
     config.mode = ESB_ROLE_MODE;
     config.event_handler = on_esb_event;
-    config.bitrate =
-        IS_ENABLED(CONFIG_ZMK_SPLIT_ESB_BITRATE_2MBPS) ? ESB_BITRATE_2MBPS : ESB_BITRATE_1MBPS;
+    config.bitrate = esb_bitrate_from_kbps(bitrate_kbps);
     config.crc = esb_crc_from_bits(crc_bits);
     config.retransmit_count = retransmit_count;
     config.retransmit_delay = retransmit_delay_us;

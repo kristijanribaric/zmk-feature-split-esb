@@ -42,6 +42,11 @@ properties:
     default: 16
     enum: [0, 8, 16]
     description: CRC width in bits (0 disables CRC). Both sides must match.
+  bitrate-kbps:
+    type: int
+    default: 2000
+    enum: [1000, 2000]
+    description: Radio bitrate in kbps. Both sides must match.
   lossy-codes:
     type: array
     description: |

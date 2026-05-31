@@ -12,18 +12,6 @@ menuconfig ZMK_SPLIT_ESB
 
 if ZMK_SPLIT_ESB
 
-choice
-    prompt "ESB bitrate"
-    default ZMK_SPLIT_ESB_BITRATE_2MBPS
-
-config ZMK_SPLIT_ESB_BITRATE_2MBPS
-    bool "2 Mbps"
-
-config ZMK_SPLIT_ESB_BITRATE_1MBPS
-    bool "1 Mbps (longer range, half throughput)"
-
-endchoice
-
 config ZMK_SPLIT_ESB_MAX_PAYLOAD
     int "Max on-air payload bytes"
     default 48

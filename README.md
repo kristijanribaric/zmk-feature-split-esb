@@ -59,6 +59,7 @@ esb_link: esb_link {
 | `retransmit-delay-us` | delay between retransmits (default 600) |
 | `use-fast-ramp-up` | shorter radio ramp-up; nRF52/nRF53; both sides must match |
 | `crc-bits` | CRC width 0/8/16 (default 16; both sides must match) |
+| `bitrate-kbps` | radio bitrate 1000/2000 (default 2000; both sides must match) |
 | `lossy-codes` | optional list of `<INPUT_EV_* code>` pairs sent without ACK |
 
 Lossy-codes lists the input axes the peripheral fires-and-forgets. Reserve for
@@ -79,7 +80,6 @@ Tunables (Kconfig, defaults shown):
 
 | Option | Default | Notes |
 |---|---|---|
-| `ZMK_SPLIT_ESB_BITRATE_2MBPS` / `ZMK_SPLIT_ESB_BITRATE_1MBPS` | 2 Mbps | link rate |
 | `ZMK_SPLIT_ESB_MAX_PAYLOAD` | 48 | max on-air bytes (>= largest split msg) |
 | `ZMK_SPLIT_ESB_RX_QUEUE_SIZE` | 16 | RX SPSC ring depth (power of 2) |
 | `ZMK_SPLIT_ESB_RX_THREAD_STACK_SIZE` | 1536 | RX dispatch thread stack |
