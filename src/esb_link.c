@@ -19,6 +19,7 @@
 #include <esb.h>
 
 #include "esb_link.h"
+#include "hop_policy.h"
 
 LOG_MODULE_REGISTER(zmk_split_esb, CONFIG_ZMK_SPLIT_ESB_LOG_LEVEL);
 
@@ -53,14 +54,6 @@ static atomic_t fails_in_window;
 static atomic_t data_sent_since_tick;
 static uint8_t bad_windows; /* keepalive_work only */
 #endif
-
-/* Length-1 acked keepalive, never motion: a retransmit can't replay stale deltas.
- * Carries the hop signal under noack motion, holds the central lock when idle.
- * Its one byte is the peripheral's current rate. */
-#define ESB_KEEPALIVE_LENGTH 1
-#define KEEPALIVE_RATE_OFFSET 0
-#define KEEPALIVE_RATE_IDLE 0x00
-#define KEEPALIVE_RATE_ACTIVE 0x01
 
 static enum esb_crc esb_crc_from_bits(uint8_t bits) {
     switch (bits) {
@@ -175,7 +168,7 @@ static void apply_hop_channel(void) {
 }
 
 static void hop_next_channel(void) {
-    hop_index = (uint8_t)((hop_index + 1U) % HOP_COUNT);
+    hop_index = hop_policy_index_next(hop_index, HOP_COUNT);
     apply_hop_channel();
 }
 
@@ -193,13 +186,8 @@ static void scan_work_fn(struct k_work *work) {
 static struct k_work_delayable keepalive_work;
 static void keepalive_work_fn(struct k_work *work) {
     ARG_UNUSED(work);
-    if (atomic_set(&fails_in_window, 0) > 0) {
-        bad_windows++;
-    } else {
-        bad_windows = 0;
-    }
-    if (bad_windows >= hop_threshold) {
-        bad_windows = 0;
+    bool window_failed = atomic_set(&fails_in_window, 0) > 0;
+    if (hop_policy_should_hop(&bad_windows, window_failed, hop_threshold)) {
         hop_next_channel();
     }
     bool active = atomic_set(&data_sent_since_tick, 0) != 0;
@@ -223,13 +211,12 @@ static void on_esb_event(const struct esb_evt *event) {
         struct esb_payload payload;
         while (esb_read_rx_payload(&payload) == 0) {
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-            if (payload.length == ESB_KEEPALIVE_LENGTH) {
-                if (payload.data[KEEPALIVE_RATE_OFFSET] == KEEPALIVE_RATE_ACTIVE) {
-                    peer_active = true;
-                }
+            if (hop_policy_marks_active(payload.length, payload.data[KEEPALIVE_RATE_OFFSET])) {
+                peer_active = true;
+            }
+            if (hop_policy_is_keepalive(payload.length)) {
                 continue; /* keepalive: never queued */
             }
-            peer_active = true;
 #endif
             struct esb_link_packet *slot = spsc_acquire(&rx_spsc);
             if (slot == NULL) {

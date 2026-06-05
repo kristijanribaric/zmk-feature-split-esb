@@ -1,0 +1,10 @@
+# Copyright 2026 Roman Kuzmitskii (@damex)
+# SPDX-License-Identifier: MIT
+
+common:
+  tags:
+    - esb
+
+tests:
+  esb.unit:
+    type: unit
