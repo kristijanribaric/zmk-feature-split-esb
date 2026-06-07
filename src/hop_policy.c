@@ -26,6 +26,10 @@ bool hop_policy_is_keepalive(uint8_t length) {
     return length == ESB_KEEPALIVE_LENGTH;
 }
 
+bool hop_policy_keepalive_is_active(uint8_t byte) {
+    return byte == ESB_KEEPALIVE_ACTIVE;
+}
+
 uint8_t hop_policy_index_next(uint8_t index, size_t count) {
     assert(count > 0);
     return (uint8_t)(((size_t)index + 1U) % count);
@@ -47,24 +51,18 @@ bool hop_policy_hop_vote(const uint8_t *link_loss, const uint8_t *weights, size_
     return weighted >= threshold;
 }
 
-void hop_policy_accrue_loss(uint8_t *link_loss, size_t count, uint32_t heard_mask) {
+void hop_policy_accrue_loss(uint8_t *link_loss, size_t count, uint32_t motion_mask,
+                            uint32_t active_mask) {
     assert(link_loss != NULL);
     for (size_t index = 0; index < count; index++) {
-        if (heard_mask & (1u << index)) {
+        if (motion_mask & (1u << index)) {
             link_loss[index] = 0;
-        } else if (link_loss[index] < UINT8_MAX) {
+        } else if ((active_mask & (1u << index)) && link_loss[index] < UINT8_MAX) {
             link_loss[index]++;
+        } else if (!(active_mask & (1u << index))) {
+            link_loss[index] = 0;
         }
     }
-}
-
-bool hop_policy_central_should_hop(uint32_t heard_mask, bool ever_connected,
-                                   const uint8_t *link_loss, const uint8_t *weights,
-                                   size_t count, uint16_t threshold) {
-    if (heard_mask == 0 || !ever_connected) {
-        return false;
-    }
-    return hop_policy_hop_vote(link_loss, weights, count, threshold);
 }
 
 bool hop_policy_should_beacon(uint8_t epoch, uint8_t *announced_epoch, uint8_t *repeats_left,

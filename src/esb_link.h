@@ -34,8 +34,8 @@ uint32_t esb_link_rx_dropped(void);
 int esb_link_send(const uint8_t *data, size_t length, bool ack);
 
 /* Peripheral only.
- * Send a length-1 acked keepalive on this device's pipe, for the hop engine. */
-void esb_link_send_keepalive(void);
+ * Send a length-1 acked keepalive carrying the hop-engine state byte on this device's pipe. */
+void esb_link_send_keepalive(uint8_t state);
 #endif
 
 #if defined(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)

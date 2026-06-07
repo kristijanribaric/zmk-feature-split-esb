@@ -36,11 +36,12 @@ static const uint16_t decision_ms = DT_INST_PROP(0, idle_keepalive_ms);
 #define LOST_LIMIT (2 * HOP_COUNT)  /* silent windows before falling back to the anchor */
 #define BEACON_REPEAT_WINDOWS 4     /* re-announce a changed epoch for this many windows */
 static uint8_t hop_epoch;
-static uint8_t pipe_loss[PERIPHERAL_COUNT]; /* consecutive silent windows, per pipe */
-static atomic_t pipe_heard_mask;            /* bit per pipe, set in the ISR */
-static uint16_t silent_run;                 /* windows since any pipe was heard */
-static bool ever_connected;                 /* a lone central must not wander off */
-static uint8_t beaconed_epoch;              /* epoch last announced to peripherals */
+static uint8_t pipe_loss[PERIPHERAL_COUNT]; /* windows an active pipe's motion went missing */
+static atomic_t pipe_heard_mask;   /* any packet this window, bit per pipe, set in the ISR */
+static atomic_t pipe_motion_mask;  /* poll/motion packet this window, bit per pipe */
+static atomic_t pipe_active_mask;  /* peripheral polling (motion or active keepalive) */
+static uint16_t silent_run;        /* windows since any pipe was heard */
+static uint8_t beaconed_epoch;     /* epoch last announced to peripherals */
 static uint8_t beacon_repeats_left;
 #else
 static const uint16_t hop_threshold = DT_INST_PROP(0, hop_threshold);
@@ -91,7 +92,6 @@ static void fall_back_to_anchor(void) {
     hop_epoch = 0;
     hop_index = hop_policy_channel_for_epoch(0, HOP_COUNT);
     apply_hop_channel();
-    ever_connected = false;
     silent_run = 0;
     clear_pipe_loss();
 }
@@ -106,11 +106,11 @@ static void stage_beacon(void) {
     }
 }
 
-/* Per window, silent pipes accrue loss and heard pipes clear it.
+/* Hopping tracks poll traffic, not a keepalive timer: only an actively-polling pipe whose
+ * motion goes missing accrues loss, so an idle or absent peripheral never drives a hop.
  * A weighted vote over that loss hops to escape a degrading channel.
- * A central that never connected stays put (a lone central must not wander).
- * One that loses everyone for too long falls back to the anchor so a sweeping
- * peripheral can re-find it.
+ * Losing every pipe for too long falls back to the anchor so a sweeping peripheral can
+ * re-find it.
  *
  * Statically initialized: ZMK's split central_init and ours share a SYS_INIT level
  * and priority, so set_enabled() can reschedule this work before our init would have
@@ -120,15 +120,15 @@ static struct k_work_delayable decision_work = Z_WORK_DELAYABLE_INITIALIZER(deci
 static void decision_work_fn(struct k_work *work) {
     ARG_UNUSED(work);
     uint32_t heard = (uint32_t)atomic_set(&pipe_heard_mask, 0);
-    hop_policy_accrue_loss(pipe_loss, PERIPHERAL_COUNT, heard);
+    uint32_t motion = (uint32_t)atomic_set(&pipe_motion_mask, 0);
+    uint32_t active = (uint32_t)atomic_set(&pipe_active_mask, 0);
+    hop_policy_accrue_loss(pipe_loss, PERIPHERAL_COUNT, motion, active);
     if (heard != 0) {
-        ever_connected = true;
         silent_run = 0;
     } else {
         silent_run++;
     }
-    if (hop_policy_central_should_hop(heard, ever_connected, pipe_loss, pipe_weights,
-                                      PERIPHERAL_COUNT, vote_threshold)) {
+    if (hop_policy_hop_vote(pipe_loss, pipe_weights, PERIPHERAL_COUNT, vote_threshold)) {
         hop_to_next_epoch();
     }
     if (silent_run >= LOST_LIMIT) {
@@ -160,7 +160,7 @@ static void keepalive_work_fn(struct k_work *work) {
         }
     }
     bool active = atomic_set(&data_sent_since_tick, 0) != 0;
-    esb_link_send_keepalive();
+    esb_link_send_keepalive(active ? ESB_KEEPALIVE_ACTIVE : ESB_KEEPALIVE_IDLE);
     k_work_reschedule(&keepalive_work, K_MSEC(active ? hop_window_ms : idle_keepalive_ms));
 }
 #endif
@@ -192,11 +192,19 @@ bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length) {
         return false;
     }
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    ARG_UNUSED(data);
+    bool keepalive = hop_policy_is_keepalive(length);
     if (pipe < PERIPHERAL_COUNT) {
         atomic_or(&pipe_heard_mask, BIT(pipe));
+        if (keepalive) {
+            if (hop_policy_keepalive_is_active(data[0])) {
+                atomic_or(&pipe_active_mask, BIT(pipe));
+            }
+        } else {
+            atomic_or(&pipe_motion_mask, BIT(pipe));
+            atomic_or(&pipe_active_mask, BIT(pipe));
+        }
     }
-    return hop_policy_is_keepalive(length); /* keepalive: marks the pipe heard, not queued */
+    return keepalive; /* a keepalive marks liveness and isn't queued, motion is */
 #else
     ARG_UNUSED(pipe);
     if (length == ESB_KEEPALIVE_LENGTH) {

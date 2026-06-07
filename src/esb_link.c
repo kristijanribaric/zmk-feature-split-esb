@@ -325,10 +325,11 @@ int esb_link_send(const uint8_t *data, size_t length, bool ack) {
     return esb_write_payload(&payload);
 }
 
-void esb_link_send_keepalive(void) {
+void esb_link_send_keepalive(uint8_t state) {
     struct esb_payload keepalive = {0};
     keepalive.pipe = self_pipe;
     keepalive.length = ESB_KEEPALIVE_LENGTH;
+    keepalive.data[0] = state;
     (void)esb_write_payload(&keepalive);
 }
 #endif

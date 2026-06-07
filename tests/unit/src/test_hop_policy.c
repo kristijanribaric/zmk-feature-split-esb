@@ -76,39 +76,21 @@ ZTEST(hop_policy, test_hop_vote) {
 }
 
 ZTEST(hop_policy, test_accrue_loss) {
-    uint8_t link_loss[3] = {0, 5, 0};
-    const uint32_t heard = (1u << 0) | (1u << 2); /* pipes 0 and 2 heard, 1 silent */
-    hop_policy_accrue_loss(link_loss, 3, heard);
-    zassert_equal(link_loss[0], 0, "heard pipe clears");
-    zassert_equal(link_loss[1], 6, "silent pipe increments");
-    zassert_equal(link_loss[2], 0, "heard pipe clears");
+    uint8_t link_loss[3] = {0, 5, 2};
+    /* pipe 0 has motion, pipe 1 is active without motion, pipe 2 is idle */
+    hop_policy_accrue_loss(link_loss, 3, (1u << 0), (1u << 0) | (1u << 1));
+    zassert_equal(link_loss[0], 0, "motion clears loss");
+    zassert_equal(link_loss[1], 6, "active without motion accrues");
+    zassert_equal(link_loss[2], 0, "idle pipe clears, never drives a hop");
 
     uint8_t saturated[1] = {UINT8_MAX};
-    hop_policy_accrue_loss(saturated, 1, 0);
+    hop_policy_accrue_loss(saturated, 1, 0, (1u << 0)); /* active, no motion */
     zassert_equal(saturated[0], UINT8_MAX, "loss saturates, no wrap");
 }
 
-ZTEST(hop_policy, test_central_should_hop) {
-    const uint8_t weights[2] = {1, 1};
-    const uint16_t threshold = 3;
-    uint8_t link_loss[2];
-
-    /* a peripheral gone silent must not drive a hop, even saturated and connected */
-    link_loss[0] = UINT8_MAX; link_loss[1] = UINT8_MAX;
-    zassert_false(hop_policy_central_should_hop(0, true, link_loss, weights, 2, threshold),
-                  "silent peripheral stays put");
-
-    link_loss[0] = UINT8_MAX; link_loss[1] = 0;
-    zassert_false(hop_policy_central_should_hop(1u << 0, false, link_loss, weights, 2, threshold),
-                  "never-connected stays put");
-
-    link_loss[0] = 3; link_loss[1] = 0;
-    zassert_true(hop_policy_central_should_hop(1u << 0, true, link_loss, weights, 2, threshold),
-                 "serving and degraded hops");
-
-    link_loss[0] = 2; link_loss[1] = 0;
-    zassert_false(hop_policy_central_should_hop(1u << 0, true, link_loss, weights, 2, threshold),
-                  "serving and healthy stays");
+ZTEST(hop_policy, test_keepalive_is_active) {
+    zassert_true(hop_policy_keepalive_is_active(ESB_KEEPALIVE_ACTIVE), "active byte");
+    zassert_false(hop_policy_keepalive_is_active(ESB_KEEPALIVE_IDLE), "idle byte");
 }
 
 ZTEST(hop_policy, test_should_beacon) {
