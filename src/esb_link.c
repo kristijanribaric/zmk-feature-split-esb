@@ -203,6 +203,7 @@ static void on_esb_event(const struct esb_evt *event) {
         break;
     }
     default:
+        /* other ESB events carry nothing this layer acts on */
         break;
     }
 }
