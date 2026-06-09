@@ -137,7 +137,6 @@ bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rs
     return keepalive;
 }
 
-/* TX result and data-sent are peripheral-side signals; no-ops on the central. */
 void hop_note_tx_success(uint8_t attempts) {
     ARG_UNUSED(attempts);
 }
