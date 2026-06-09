@@ -20,12 +20,12 @@
 static const uint16_t hop_threshold = DT_INST_PROP(0, hop_threshold);
 static const uint16_t hop_window_ms = DT_INST_PROP(0, hop_window_ms);
 static const uint16_t idle_keepalive_ms = DT_INST_PROP(0, idle_keepalive_ms);
-static atomic_t max_tx_attempts; /* worst acked-TX retransmit count this window */
+static atomic_t max_tx_attempts;
 static atomic_t data_sent_since_tick;
-static atomic_t beacon_epoch;  /* latest epoch from the central, set in the ISR */
-static uint8_t bad_windows;    /* keepalive_work only, sweep streak */
-static uint8_t adopted_epoch;  /* keepalive_work only */
-static int8_t last_rssi_dbm;   /* downlink dBm, ISR-written */
+static atomic_t beacon_epoch;
+static uint8_t bad_windows;
+static uint8_t adopted_epoch;
+static int8_t last_rssi_dbm;
 
 /* Adopt the central's channel when its beacon epoch changes.
  * Otherwise sweep the table on a TX-fail streak to re-find where the central hopped.

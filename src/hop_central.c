@@ -29,13 +29,13 @@ static const int8_t rssi_floor_dbm = DT_INST_PROP(0, rssi_floor_dbm);
 #define LOST_LIMIT (2 * HOP_COUNT)  /* silent windows before falling back to the anchor */
 #define BEACON_REPEAT_WINDOWS 4     /* re-announce a changed epoch for this many windows */
 static uint8_t hop_epoch;
-static uint8_t pipe_loss[PERIPHERAL_COUNT]; /* graded degradation, per pipe */
-static int8_t pipe_rssi[PERIPHERAL_COUNT];  /* last motion RSSI this window (dBm), per pipe */
-static atomic_t pipe_heard_mask;   /* any packet this window, bit per pipe, set in the ISR */
-static atomic_t pipe_motion_mask;  /* poll/motion packet this window, bit per pipe */
-static atomic_t pipe_active_mask;  /* peripheral polling (motion or active keepalive) */
-static uint16_t silent_run;        /* windows since any pipe was heard */
-static uint8_t beaconed_epoch;     /* epoch last announced to peripherals */
+static uint8_t pipe_loss[PERIPHERAL_COUNT];
+static int8_t pipe_rssi[PERIPHERAL_COUNT];
+static atomic_t pipe_heard_mask;
+static atomic_t pipe_motion_mask;
+static atomic_t pipe_active_mask;
+static uint16_t silent_run;
+static uint8_t beaconed_epoch;
 static uint8_t beacon_repeats_left;
 
 static void clear_pipe_loss(void) {
