@@ -30,7 +30,7 @@ static const int8_t rssi_floor_dbm = DT_INST_PROP(0, rssi_floor_dbm);
 #define BEACON_REPEAT_WINDOWS 4     /* re-announce a changed epoch for this many windows */
 static uint8_t hop_epoch;
 static uint8_t pipe_loss[PERIPHERAL_COUNT];
-static int8_t pipe_rssi[PERIPHERAL_COUNT];
+static int8_t pipe_rssi_dbm[PERIPHERAL_COUNT];
 static atomic_t pipe_heard_mask;
 static atomic_t pipe_motion_mask;
 static atomic_t pipe_active_mask;
@@ -85,7 +85,7 @@ static void decision_work_fn(struct k_work *work) {
     uint32_t heard = (uint32_t)atomic_set(&pipe_heard_mask, 0);
     uint32_t motion = (uint32_t)atomic_set(&pipe_motion_mask, 0);
     uint32_t active = (uint32_t)atomic_set(&pipe_active_mask, 0);
-    hop_policy_accrue_loss(pipe_loss, PERIPHERAL_COUNT, motion, active, pipe_rssi, rssi_floor_dbm);
+    hop_policy_accrue_loss(pipe_loss, PERIPHERAL_COUNT, motion, active, pipe_rssi_dbm, rssi_floor_dbm);
     if (heard != 0) {
         silent_windows = 0;
     } else {
@@ -128,9 +128,9 @@ bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rs
             }
         } else {
             atomic_or(&pipe_active_mask, BIT(pipe));
-            /* Store before the motion bit: the decision tick reads pipe_rssi only when
+            /* Store before the motion bit: the decision tick reads pipe_rssi_dbm only when
              * that bit is set, so publish the value first. */
-            pipe_rssi[pipe] = hop_policy_rssi_to_dbm(rssi);
+            pipe_rssi_dbm[pipe] = hop_policy_rssi_to_dbm(rssi);
             atomic_or(&pipe_motion_mask, BIT(pipe));
         }
     }
@@ -153,5 +153,5 @@ void zmk_split_esb_get_status(struct zmk_split_esb_status *status) {
     status->channel = hop_current_channel();
     status->epoch = hop_epoch;
     status->searching = silent_windows > 0;
-    status->rssi_dbm = pipe_rssi[0];
+    status->rssi_dbm = pipe_rssi_dbm[0];
 }
