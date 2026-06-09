@@ -8,6 +8,11 @@
 
 #include "esb_wire.h"
 
+enum {
+    WIRE_TYPE_OFFSET = 0,
+    WIRE_PAYLOAD_OFFSET = 1,
+};
+
 /* ZMK pads input_event to 12 bytes, the union's widest member.
  * Packing its fields drops the on-air payload to 9. */
 struct __packed input_wire {
@@ -18,7 +23,7 @@ struct __packed input_wire {
     int32_t value;
 };
 BUILD_ASSERT(sizeof(struct input_wire) == 9, "input wire layout drifted");
-BUILD_ASSERT(1 + sizeof(struct input_wire) == ESB_WIRE_INPUT_EVENT_SIZE,
+BUILD_ASSERT(WIRE_PAYLOAD_OFFSET + sizeof(struct input_wire) == ESB_WIRE_INPUT_EVENT_SIZE,
              "ESB_WIRE_INPUT_EVENT_SIZE drifted from the encoded layout");
 
 #define WIRE_PAYLOAD(member)                                                                       \
@@ -43,10 +48,10 @@ size_t esb_wire_encode_event(uint8_t *out, size_t out_cap,
     __ASSERT_NO_MSG(event != NULL);
     uint8_t type = (uint8_t)event->type;
     uint8_t size = (type < ARRAY_SIZE(payload_size)) ? payload_size[type] : 0;
-    if (out_cap < (size_t)(1 + size)) {
+    if (out_cap < (size_t)(WIRE_PAYLOAD_OFFSET + size)) {
         return 0;
     }
-    out[0] = type;
+    out[WIRE_TYPE_OFFSET] = type;
     if (is_input(type)) {
         struct input_wire wire = {
             .reg = event->data.input_event.reg,
@@ -55,40 +60,40 @@ size_t esb_wire_encode_event(uint8_t *out, size_t out_cap,
             .code = event->data.input_event.code,
             .value = event->data.input_event.value,
         };
-        memcpy(&out[1], &wire, sizeof(wire));
+        memcpy(&out[WIRE_PAYLOAD_OFFSET], &wire, sizeof(wire));
     } else {
-        memcpy(&out[1], &event->data, size);
+        memcpy(&out[WIRE_PAYLOAD_OFFSET], &event->data, size);
     }
-    return (size_t)(1 + size);
+    return (size_t)(WIRE_PAYLOAD_OFFSET + size);
 }
 
 size_t esb_wire_decode_event(const uint8_t *in, size_t avail,
                              struct zmk_split_transport_peripheral_event *event) {
     __ASSERT_NO_MSG(in != NULL);
     __ASSERT_NO_MSG(event != NULL);
-    if (avail < 1) {
+    if (avail < WIRE_PAYLOAD_OFFSET) {
         return 0;
     }
-    uint8_t type = in[0];
+    uint8_t type = in[WIRE_TYPE_OFFSET];
     if (type >= ARRAY_SIZE(payload_size) || payload_size[type] == 0) {
         return 0;
     }
     uint8_t size = payload_size[type];
-    if (avail < (size_t)(1 + size)) {
+    if (avail < (size_t)(WIRE_PAYLOAD_OFFSET + size)) {
         return 0;
     }
     *event = (struct zmk_split_transport_peripheral_event){0};
     event->type = (enum zmk_split_transport_peripheral_event_type)type;
     if (is_input(type)) {
         struct input_wire wire;
-        memcpy(&wire, &in[1], sizeof(wire));
+        memcpy(&wire, &in[WIRE_PAYLOAD_OFFSET], sizeof(wire));
         event->data.input_event.reg = wire.reg;
         event->data.input_event.sync = wire.sync;
         event->data.input_event.type = wire.type;
         event->data.input_event.code = wire.code;
         event->data.input_event.value = wire.value;
     } else {
-        memcpy(&event->data, &in[1], size);
+        memcpy(&event->data, &in[WIRE_PAYLOAD_OFFSET], size);
     }
-    return (size_t)(1 + size);
+    return (size_t)(WIRE_PAYLOAD_OFFSET + size);
 }
