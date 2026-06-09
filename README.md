@@ -37,8 +37,14 @@ CONFIG_ZMK_SPLIT=y
 CONFIG_ZMK_SPLIT_BLE=n
 CONFIG_ZMK_SPLIT_WIRED=n
 CONFIG_ZMK_SPLIT_ESB=y
+CONFIG_ESB_MAX_PAYLOAD_LENGTH=48
 ```
 Central also sets `CONFIG_ZMK_SPLIT_ROLE_CENTRAL=y`. Peripheral leaves it unset.
+
+Set `CONFIG_ESB_MAX_PAYLOAD_LENGTH` to at least `ZMK_SPLIT_ESB_MAX_PAYLOAD` (48).
+Module defaults it, but sdk-nrf default (32) can win on Kconfig parse order, so set
+it explicitly on every device. Build assert catches value too small for largest
+split message.
 
 Same link identity in a dtsi included by the central and every peripheral:
 ```dts
