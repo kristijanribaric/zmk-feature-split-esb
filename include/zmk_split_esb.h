@@ -18,10 +18,13 @@ struct zmk_split_esb_status {
 
 /* Lock-free snapshot of local link state.
  * rssi_dbm is received signal, never own transmit.
- * Central reports worst sampled peripheral link. */
+ * Central: worst sampled peripheral link.
+ * Peripheral: own central link. */
 void zmk_split_esb_get_status(struct zmk_split_esb_status *status);
 
-/* Links tracked: served peripherals on central, 1 on peripheral. */
+/* Links tracked.
+ * Central: served peripherals.
+ * Peripheral: 1. */
 uint8_t zmk_split_esb_pipe_count(void);
 
 /* Received signal for one link, 0 before first sample or out of range.

@@ -62,7 +62,6 @@ static const struct zmk_split_transport_central_api central_api = {
 
 ZMK_SPLIT_TRANSPORT_CENTRAL_REGISTER(esb_central, &central_api, CONFIG_ZMK_SPLIT_ESB_PRIORITY);
 
-/* Runs in the esb_link dispatch thread (not the radio ISR). */
 static void central_on_rx(uint8_t pipe, const uint8_t *data, size_t length) {
     /* One packet may carry several coalesced events.
      * Decode and replay each in order. */

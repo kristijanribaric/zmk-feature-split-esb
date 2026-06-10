@@ -3,9 +3,9 @@
 
 /*
  * Channel-hopping engine layered on the ESB transport.
- * The central owns the epoch and votes to hop off a degrading channel.
- * A peripheral adopts the central's epoch from beacons and sweeps to re-find it on loss.
  * Every entry point is a no-op when hop-channels lists a single channel.
+ * Central: owns the epoch, votes to hop off a degrading channel.
+ * Peripheral: adopts the epoch from beacons, sweeps to re-find it on loss.
  */
 #pragma once
 
@@ -13,25 +13,31 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Schedule the per-role hop work.
- * Safe before esb_link_init runs, since the work is statically initialized. */
+/* Schedule per-role hop work.
+ * Safe before esb_link_init runs, work is statically initialized.
+ * Central: hop-decision window.
+ * Peripheral: keepalive tick. */
 void hop_start(void);
 
 void hop_stop(void);
 
 /* Called per received payload in the radio ISR.
- * rssi is the ESB sample magnitude (actual dBm is its negative).
- * Returns true for a control packet the caller must not queue: a keepalive on the
- * central, an epoch beacon on a peripheral. */
+ * rssi is the ESB sample magnitude (dBm is its negative).
+ * Returns true for control packets the caller must not queue.
+ * Central: keepalive.
+ * Peripheral: epoch beacon. */
 bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rssi);
 
-/* Peripheral: an acked transmit succeeded after this many attempts (1 = first try). */
+/* Central: no-op.
+ * Peripheral: acked transmit succeeded after this many attempts (1 = first try). */
 void hop_note_tx_success(uint8_t attempts);
 
-/* Peripheral: a transmit exhausted its retransmits this window. */
+/* Central: no-op.
+ * Peripheral: transmit exhausted its retransmits this window. */
 void hop_note_tx_failed(void);
 
-/* Peripheral: real data went out, so the next keepalive uses the fast rate. */
+/* Central: no-op.
+ * Peripheral: real data went out, next keepalive uses the fast rate. */
 void hop_note_data_sent(void);
 
 /* Channel the radio should currently tune to. */

@@ -11,17 +11,18 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/*
- * One received packet, handed up in a thread context (not the radio ISR):
- *   - central: an event from the peripheral on `pipe`.
- *   - peripheral: a command the central rode back on an ACK (`pipe` is its own).
- */
+/* One received packet, handed up in thread context (not the radio ISR).
+ * Central: event from the peripheral on pipe.
+ * Peripheral: command rode back on an ACK, pipe is its own. */
 typedef void (*esb_link_rx_callback_t)(uint8_t pipe, const uint8_t *data, size_t length);
 
-/* Initialize the radio for this device's role.
- * The central also starts listening. */
+/* Initialize radio for this device's role.
+ * Central: PRX, starts listening.
+ * Peripheral: PTX, idle until first send. */
 int esb_link_init(esb_link_rx_callback_t callback);
 
+/* Central: re-enable restarts RX.
+ * Peripheral: re-enable restarts hop work only. */
 int esb_link_set_enabled(bool enabled);
 
 #if !defined(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
