@@ -7,14 +7,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Length-1 acked keepalive: a retransmit can't replay stale deltas, length 1 marks it as a
- * keepalive rather than a split message, and its one byte tells the central whether the
- * peripheral is actively polling. */
-#define ESB_KEEPALIVE_LENGTH 1
+/* Length-1 ACK reply marks the central's epoch beacon rather than a command. */
+#define ESB_BEACON_LENGTH 1
+
+/* Keepalive state byte values: whether the peripheral is actively polling. */
 #define ESB_KEEPALIVE_IDLE 0x00
 #define ESB_KEEPALIVE_ACTIVE 0x01
 
-/* True when a keepalive byte reports the peripheral is actively polling. */
 bool hop_policy_keepalive_is_active(uint8_t byte);
 
 /* ESB RSSI is a positive magnitude, dBm is its negative. */
@@ -37,7 +36,7 @@ bool hop_policy_should_hop(uint8_t *bad_windows, uint8_t penalty, uint16_t thres
 #define HOP_POLICY_TX_ATTEMPTS_GRADE_STEP 4
 uint8_t hop_policy_attempts_penalty(uint8_t attempts, uint8_t good_attempts);
 
-bool hop_policy_is_keepalive(uint8_t length);
+bool hop_policy_is_beacon(uint8_t length);
 
 uint8_t hop_policy_index_next(uint8_t index, size_t count);
 

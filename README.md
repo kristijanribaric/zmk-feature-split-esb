@@ -190,6 +190,17 @@ Tunables (Kconfig, defaults shown):
 | `ZMK_SPLIT_ESB_REPLY_QUEUE_SIZE` | 8 | central reverse-channel queue depth |
 | `ZMK_SPLIT_ESB_PRIORITY` | 50 | transport registration priority |
 
+## Lost-event reconcile
+
+Key events are ACK'd, but the radio gives up after `retransmit-count` tries, so a
+press or release can still die in a bad-RF moment. Each peripheral keepalive
+carries its pressed-position bitmap; the central diffs it against its own view and
+replays the lost transitions. A stuck key heals within one keepalive period
+(`hop-window-ms` while typing, `idle-keepalive-ms` at idle). The live stream is
+healed too: an orphan release (lost press) drops before ZMK sees it, a repeated
+press synthesizes its lost release first. Keepalives run on single-channel links
+too. Positions 64 and above are not covered.
+
 ## Channel hopping
 
 List two or more channels in `hop-channels` and the link hops between them, stepping

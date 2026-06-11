@@ -51,10 +51,10 @@ ZTEST(hop_policy, test_attempts_penalty) {
     zassert_equal(hop_policy_attempts_penalty(255, good), HOP_POLICY_MAX_LOSS_PENALTY, "lost: capped");
 }
 
-ZTEST(hop_policy, test_is_keepalive) {
-    zassert_true(hop_policy_is_keepalive(ESB_KEEPALIVE_LENGTH), "length 1 is keepalive");
-    zassert_false(hop_policy_is_keepalive(2), "length 2 is data");
-    zassert_false(hop_policy_is_keepalive(8), "length 8 is data");
+ZTEST(hop_policy, test_is_beacon) {
+    zassert_true(hop_policy_is_beacon(ESB_BEACON_LENGTH), "length 1 is beacon");
+    zassert_false(hop_policy_is_beacon(2), "length 2 is data");
+    zassert_false(hop_policy_is_beacon(8), "length 8 is data");
 }
 
 ZTEST(hop_policy, test_index_next_wraps) {

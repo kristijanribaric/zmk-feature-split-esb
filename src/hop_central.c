@@ -12,6 +12,7 @@
 
 #include <zmk_split_esb.h>
 
+#include "esb_keepalive.h"
 #include "esb_link.h"
 #include "hop.h"
 #include "hop_internal.h"
@@ -116,7 +117,7 @@ void hop_stop(void) {
 }
 
 bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rssi) {
-    bool keepalive = hop_policy_is_keepalive(length);
+    bool keepalive = esb_keepalive_matches(data, length);
     if (pipe < PERIPHERAL_COUNT && !keepalive) {
         /* Store before the motion bit: the decision tick reads pipe_rssi_dbm only when
          * that bit is set, so publish the value first. */
@@ -128,8 +129,7 @@ bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rs
     if (pipe < PERIPHERAL_COUNT) {
         atomic_or(&pipe_heard_mask, BIT(pipe));
         if (keepalive) {
-            uint8_t keepalive_state = data[0];
-            if (hop_policy_keepalive_is_active(keepalive_state)) {
+            if (hop_policy_keepalive_is_active(esb_keepalive_state(data))) {
                 atomic_or(&pipe_active_mask, BIT(pipe));
             }
         } else {
@@ -137,7 +137,7 @@ bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rs
             atomic_or(&pipe_motion_mask, BIT(pipe));
         }
     }
-    return keepalive;
+    return false;
 }
 
 void hop_note_tx_success(uint8_t attempts) {

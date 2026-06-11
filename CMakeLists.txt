@@ -19,6 +19,7 @@ if(CONFIG_ZMK_SPLIT_ESB)
       -Wold-style-definition
       -fanalyzer
   )
+  zephyr_library_sources(src/esb_keepalive.c)
   zephyr_library_sources(src/esb_link.c)
   zephyr_library_sources(src/esb_wire.c)
   zephyr_library_sources(src/hop.c)

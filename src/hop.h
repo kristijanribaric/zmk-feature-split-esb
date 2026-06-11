@@ -3,7 +3,8 @@
 
 /*
  * Channel-hopping engine layered on the ESB transport.
- * Every entry point is a no-op when hop-channels lists a single channel.
+ * Hop logic is a no-op when hop-channels lists a single channel.
+ * Peripheral keepalive tick runs regardless: it carries the pressed-position bitmap.
  * Central: owns the epoch, votes to hop off a degrading channel.
  * Peripheral: adopts the epoch from beacons, sweeps to re-find it on loss.
  */
@@ -24,7 +25,7 @@ void hop_stop(void);
 /* Called per received payload in the radio ISR.
  * rssi is the ESB sample magnitude (dBm is its negative).
  * Returns true for control packets the caller must not queue.
- * Central: keepalive.
+ * Central: always false, keepalives queue up for position reconcile.
  * Peripheral: epoch beacon. */
 bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rssi);
 

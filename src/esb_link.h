@@ -32,8 +32,13 @@ int esb_link_set_enabled(bool enabled);
 int esb_link_send(const uint8_t *data, size_t length, bool ack);
 
 /* Peripheral only.
- * Send a length-1 acked keepalive carrying the hop-engine state byte on this device's pipe. */
-void esb_link_send_keepalive(uint8_t state);
+ * Send an acked keepalive: hop-engine state byte plus pressed-position bitmap. */
+void esb_link_send_keepalive(uint8_t state, const uint8_t *position_bitmap);
+
+/* Peripheral only.
+ * Role layer's live pressed-position bitmap (ESB_KEEPALIVE_BITMAP_BYTES), defined in
+ * peripheral.c and read by the keepalive tick. */
+const uint8_t *esb_link_keepalive_bitmap(void);
 #endif
 
 #if defined(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)

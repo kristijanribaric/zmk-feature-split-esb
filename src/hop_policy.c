@@ -38,8 +38,8 @@ uint8_t hop_policy_attempts_penalty(uint8_t attempts, uint8_t good_attempts) {
     return (uint8_t)penalty;
 }
 
-bool hop_policy_is_keepalive(uint8_t length) {
-    return length == ESB_KEEPALIVE_LENGTH;
+bool hop_policy_is_beacon(uint8_t length) {
+    return length == ESB_BEACON_LENGTH;
 }
 
 bool hop_policy_keepalive_is_active(uint8_t byte) {
