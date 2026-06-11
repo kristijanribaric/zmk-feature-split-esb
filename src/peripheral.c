@@ -18,6 +18,7 @@
 #include "esb_batch.h"
 #include "esb_keepalive.h"
 #include "esb_link.h"
+#include "esb_wire.h"
 
 LOG_MODULE_DECLARE(zmk_split_esb, CONFIG_ZMK_SPLIT_ESB_LOG_LEVEL);
 
@@ -73,13 +74,18 @@ const uint8_t *esb_link_keepalive_bitmap(void) {
 }
 
 static int peripheral_report_event(const struct zmk_split_transport_peripheral_event *event) {
+    if (event->type == ZMK_SPLIT_TRANSPORT_PERIPHERAL_EVENT_TYPE_INPUT_EVENT) {
+        return esb_batch_report_event(&batch, event, event_wants_ack(event));
+    }
     if (event->type == ZMK_SPLIT_TRANSPORT_PERIPHERAL_EVENT_TYPE_KEY_POSITION_EVENT) {
         /* Bitmap records intent even when the send fails below:
          * keepalive reconcile heals the miss. */
         esb_keepalive_bitmap_set(pressed_positions, event->data.key_position_event.position,
                                  event->data.key_position_event.pressed);
     }
-    return esb_batch_report_event(&batch, event, event_wants_ack(event));
+    uint8_t wire[ESB_WIRE_MAX_EVENT_SIZE];
+    size_t length = esb_wire_encode_event(wire, sizeof(wire), event);
+    return esb_link_send(wire, length, event_wants_ack(event));
 }
 
 static int peripheral_set_enabled(bool enabled) {

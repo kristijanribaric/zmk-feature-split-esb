@@ -18,8 +18,9 @@ struct esb_batch {
     bool wants_ack;
 };
 
-/* Buffer an input event, flush on its sync flag or a full batch.
- * Non-input events flush the batch first and go alone with their own ack. */
+/* Input events only, single producer (the input thread), so no lock.
+ * Buffer the event, flush on its sync flag or a full batch.
+ * Caller routes non-input events straight to esb_link_send. */
 int esb_batch_report_event(struct esb_batch *batch,
                            const struct zmk_split_transport_peripheral_event *event,
                            bool wants_ack);

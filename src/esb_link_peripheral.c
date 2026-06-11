@@ -25,6 +25,17 @@ BUILD_ASSERT(ESB_KEEPALIVE_LENGTH <= CONFIG_ZMK_SPLIT_ESB_MAX_PAYLOAD,
 BUILD_ASSERT(DT_HAS_CHOSEN(zmk_esb_self), "peripheral needs a chosen zmk,esb-self");
 static const uint8_t self_pipe = DT_PROP(DT_CHOSEN(zmk_esb_self), pipe);
 
+/* esb_write_payload checks FIFO space before its internal irq_lock, so two
+ * submitters racing at a near-full FIFO can overflow the ring. Input thread and
+ * system workqueue both submit here: extend esb.c's own lock domain over the
+ * unlocked pre-check. */
+static int submit_payload(const struct esb_payload *payload) {
+    unsigned int key = irq_lock();
+    int error = esb_write_payload(payload);
+    irq_unlock(key);
+    return error;
+}
+
 int esb_link_send(const uint8_t *data, size_t length, bool ack) {
     if (length > CONFIG_ZMK_SPLIT_ESB_MAX_PAYLOAD) {
         return -EMSGSIZE;
@@ -35,7 +46,7 @@ int esb_link_send(const uint8_t *data, size_t length, bool ack) {
     payload.noack = !ack;
     payload.length = (uint8_t)length;
     memcpy(payload.data, data, length);
-    int error = esb_write_payload(&payload);
+    int error = submit_payload(&payload);
     if (error) {
         LOG_WRN("uplink event dropped, esb_write_payload returned %d", error);
     }
@@ -47,7 +58,7 @@ void esb_link_send_keepalive(uint8_t state, const uint8_t *position_bitmap) {
     keepalive.pipe = self_pipe;
     keepalive.length = ESB_KEEPALIVE_LENGTH;
     esb_keepalive_encode(keepalive.data, state, position_bitmap);
-    (void)esb_write_payload(&keepalive);
+    (void)submit_payload(&keepalive);
 }
 
 int esb_link_role_start(void) {

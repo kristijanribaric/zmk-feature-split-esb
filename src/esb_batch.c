@@ -6,8 +6,6 @@
  * axis as its own event (REL_X sync=0, REL_Y sync=1), doubling on-air packets at high rate.
  * Buffer input events and flush on the sync event (the report boundary, us later, so no
  * real latency added).
- * Non-input events flush the batch and go alone.
- * Single context (the input thread), so no lock.
  */
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/util.h>
@@ -47,15 +45,7 @@ int esb_batch_report_event(struct esb_batch *batch,
                            bool wants_ack) {
     __ASSERT_NO_MSG(batch != NULL);
     __ASSERT_NO_MSG(event != NULL);
-    if (event->type != ZMK_SPLIT_TRANSPORT_PERIPHERAL_EVENT_TYPE_INPUT_EVENT) {
-        int flush_error = esb_batch_flush(batch);
-        if (flush_error < 0) {
-            return flush_error;
-        }
-        uint8_t wire[ESB_WIRE_MAX_EVENT_SIZE];
-        size_t length = esb_wire_encode_event(wire, sizeof(wire), event);
-        return esb_link_send(wire, length, wants_ack);
-    }
+    __ASSERT_NO_MSG(event->type == ZMK_SPLIT_TRANSPORT_PERIPHERAL_EVENT_TYPE_INPUT_EVENT);
     batch->events[batch->count] = *event;
     batch->count++;
     if (wants_ack) {
