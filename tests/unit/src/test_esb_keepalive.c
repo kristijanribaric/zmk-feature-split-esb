@@ -43,6 +43,35 @@ ZTEST(esb_keepalive, test_bitmap_set_get_clear) {
     zassert_false(esb_keepalive_bitmap_get(bitmap, 5), "clear reads back");
 }
 
+ZTEST(esb_keepalive, test_key_verdict) {
+    uint8_t tracked[ESB_KEEPALIVE_BITMAP_BYTES] = {0};
+    zassert_equal(esb_keepalive_key_verdict(tracked, 5, true), ESB_KEEPALIVE_KEY_FORWARD,
+                  "fresh press forwards");
+    zassert_equal(esb_keepalive_key_verdict(tracked, 5, false),
+                  ESB_KEEPALIVE_KEY_DROP_ORPHAN_RELEASE, "orphan release drops");
+    esb_keepalive_bitmap_set(tracked, 5, true);
+    zassert_equal(esb_keepalive_key_verdict(tracked, 5, true),
+                  ESB_KEEPALIVE_KEY_HEAL_LOST_RELEASE, "repeated press heals");
+    zassert_equal(esb_keepalive_key_verdict(tracked, 5, false), ESB_KEEPALIVE_KEY_FORWARD,
+                  "matched release forwards");
+}
+
+ZTEST(esb_keepalive, test_bitmap_diff_next) {
+    uint8_t tracked[ESB_KEEPALIVE_BITMAP_BYTES] = {0};
+    uint8_t received[ESB_KEEPALIVE_BITMAP_BYTES] = {0};
+    zassert_equal(esb_keepalive_bitmap_diff_next(tracked, received, 0),
+                  ESB_KEEPALIVE_POSITION_COUNT, "identical bitmaps");
+    esb_keepalive_bitmap_set(received, 3, true);
+    esb_keepalive_bitmap_set(received, 40, true);
+    esb_keepalive_bitmap_set(tracked, 63, true);
+    zassert_equal(esb_keepalive_bitmap_diff_next(tracked, received, 0), 3, "first diff");
+    zassert_equal(esb_keepalive_bitmap_diff_next(tracked, received, 4), 40, "second diff");
+    zassert_equal(esb_keepalive_bitmap_diff_next(tracked, received, 41), 63,
+                  "tracked-only diff");
+    zassert_equal(esb_keepalive_bitmap_diff_next(tracked, received, 64),
+                  ESB_KEEPALIVE_POSITION_COUNT, "scan from beyond bitmap");
+}
+
 ZTEST(esb_keepalive, test_bitmap_bounds) {
     uint8_t bitmap[ESB_KEEPALIVE_BITMAP_BYTES] = {0};
     esb_keepalive_bitmap_set(bitmap, ESB_KEEPALIVE_POSITION_COUNT, true);

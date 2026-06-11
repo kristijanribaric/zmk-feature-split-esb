@@ -9,6 +9,7 @@
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/__assert.h>
 
 #include <zmk/split/transport/central.h>
 #include <zmk/split/transport/types.h>
@@ -103,23 +104,18 @@ static void reconcile_positions(uint8_t source, const uint8_t *received) {
     if (source >= CENTRAL_PIPE_MAX) {
         return;
     }
-    for (uint32_t position = 0; position < ESB_KEEPALIVE_POSITION_COUNT; position++) {
-        bool tracked = esb_keepalive_bitmap_get(tracked_positions[source], position);
+    uint8_t *tracked = tracked_positions[source];
+    for (uint32_t position = esb_keepalive_bitmap_diff_next(tracked, received, 0);
+         position < ESB_KEEPALIVE_POSITION_COUNT;
+         position = esb_keepalive_bitmap_diff_next(tracked, received, position + 1)) {
         bool pressed = esb_keepalive_bitmap_get(received, position);
-        if (tracked == pressed) {
-            continue;
-        }
         LOG_WRN("Reconciling lost %s of position %u from %u", pressed ? "press" : "release",
                 (unsigned int)position, source);
-        esb_keepalive_bitmap_set(tracked_positions[source], position, pressed);
+        esb_keepalive_bitmap_set(tracked, position, pressed);
         forward_key_position(source, position, pressed);
     }
 }
 
-/* Heal stream inconsistencies from radio loss before ZMK sees them.
- * Orphan release (lost press) drops.
- * Repeated press (lost release) synthesizes the missing release first.
- * Positions beyond the bitmap pass through. */
 static void deliver_key_event(uint8_t source,
                               const struct zmk_split_transport_peripheral_event *event) {
     uint32_t position = event->data.key_position_event.position;
@@ -128,14 +124,19 @@ static void deliver_key_event(uint8_t source,
         zmk_split_transport_central_peripheral_event_handler(&esb_central, source, *event);
         return;
     }
-    bool tracked = esb_keepalive_bitmap_get(tracked_positions[source], position);
-    if (!pressed && !tracked) {
+    switch (esb_keepalive_key_verdict(tracked_positions[source], position, pressed)) {
+    case ESB_KEEPALIVE_KEY_DROP_ORPHAN_RELEASE:
         LOG_WRN("Dropping orphan release of position %u from %u", (unsigned int)position, source);
         return;
-    }
-    if (pressed && tracked) {
+    case ESB_KEEPALIVE_KEY_HEAL_LOST_RELEASE:
         LOG_WRN("Healing lost release of position %u from %u", (unsigned int)position, source);
         forward_key_position(source, position, false);
+        break;
+    case ESB_KEEPALIVE_KEY_FORWARD:
+        break;
+    default:
+        __ASSERT_NO_MSG(false);
+        return;
     }
     esb_keepalive_bitmap_set(tracked_positions[source], position, pressed);
     zmk_split_transport_central_peripheral_event_handler(&esb_central, source, *event);

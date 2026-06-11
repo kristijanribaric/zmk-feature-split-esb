@@ -50,3 +50,29 @@ bool esb_keepalive_bitmap_get(const uint8_t *bitmap, uint32_t position) {
     }
     return (bitmap[position / 8] & (1U << (position % 8))) != 0;
 }
+
+enum esb_keepalive_key_verdict esb_keepalive_key_verdict(const uint8_t *tracked_bitmap,
+                                                         uint32_t position, bool pressed) {
+    assert(tracked_bitmap != NULL);
+    bool tracked = esb_keepalive_bitmap_get(tracked_bitmap, position);
+    if (!pressed && !tracked) {
+        return ESB_KEEPALIVE_KEY_DROP_ORPHAN_RELEASE;
+    }
+    if (pressed && tracked) {
+        return ESB_KEEPALIVE_KEY_HEAL_LOST_RELEASE;
+    }
+    return ESB_KEEPALIVE_KEY_FORWARD;
+}
+
+uint32_t esb_keepalive_bitmap_diff_next(const uint8_t *tracked, const uint8_t *received,
+                                        uint32_t position) {
+    assert(tracked != NULL);
+    assert(received != NULL);
+    for (; position < ESB_KEEPALIVE_POSITION_COUNT; position++) {
+        if (esb_keepalive_bitmap_get(tracked, position) !=
+            esb_keepalive_bitmap_get(received, position)) {
+            return position;
+        }
+    }
+    return ESB_KEEPALIVE_POSITION_COUNT;
+}

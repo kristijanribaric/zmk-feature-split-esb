@@ -33,3 +33,19 @@ const uint8_t *esb_keepalive_bitmap(const uint8_t *data);
 /* Out-of-range positions: set is ignored, get reads false. */
 void esb_keepalive_bitmap_set(uint8_t *bitmap, uint32_t position, bool pressed);
 bool esb_keepalive_bitmap_get(const uint8_t *bitmap, uint32_t position);
+
+/* Live-stream healing: orphan release (lost press) drops, repeated press (lost
+ * release) heals the missing release before forwarding.
+ * Caller bounds position: beyond the bitmap there is nothing to classify. */
+enum esb_keepalive_key_verdict {
+    ESB_KEEPALIVE_KEY_FORWARD,
+    ESB_KEEPALIVE_KEY_DROP_ORPHAN_RELEASE,
+    ESB_KEEPALIVE_KEY_HEAL_LOST_RELEASE,
+};
+enum esb_keepalive_key_verdict esb_keepalive_key_verdict(const uint8_t *tracked_bitmap,
+                                                         uint32_t position, bool pressed);
+
+/* Next position whose bit differs between the bitmaps, scanning from position
+ * upward. ESB_KEEPALIVE_POSITION_COUNT when none differ. */
+uint32_t esb_keepalive_bitmap_diff_next(const uint8_t *tracked, const uint8_t *received,
+                                        uint32_t position);
