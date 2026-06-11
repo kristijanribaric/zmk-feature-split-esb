@@ -80,8 +80,9 @@ bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rs
 }
 
 static void record_tx_attempts(uint8_t attempts) {
-    if ((uint8_t)atomic_get(&max_tx_attempts) < attempts) {
-        atomic_set(&max_tx_attempts, attempts);
+    atomic_val_t current = atomic_get(&max_tx_attempts);
+    while ((uint8_t)current < attempts && !atomic_cas(&max_tx_attempts, current, attempts)) {
+        current = atomic_get(&max_tx_attempts);
     }
 }
 
