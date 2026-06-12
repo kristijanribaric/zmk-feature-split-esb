@@ -135,6 +135,7 @@ static void peripheral_on_rx(uint8_t pipe, const uint8_t *data, size_t length) {
     ARG_UNUSED(pipe);
     if (length != sizeof(struct zmk_split_transport_central_command)) {
         LOG_WRN("Dropping command with unexpected size %u", (unsigned int)length);
+        LOG_HEXDUMP_DBG(data, length, "unexpected command payload");
         return;
     }
     struct zmk_split_transport_central_command command;

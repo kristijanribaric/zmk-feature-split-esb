@@ -246,6 +246,7 @@ static void central_on_rx(uint8_t pipe, const uint8_t *data, size_t length) {
         size_t consumed = esb_wire_decode_event(&data[offset], length - offset, &event);
         if (consumed == 0) {
             LOG_WRN("Dropping packet, undecodable event at offset %u", (unsigned int)offset);
+            LOG_HEXDUMP_DBG(data, length, "undecodable payload");
             return;
         }
         offset += consumed;
