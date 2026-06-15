@@ -210,6 +210,8 @@ static void staleness_work_fn(struct k_work *work) {
     ARG_UNUSED(work);
     uint32_t now = k_uptime_get_32();
     for (uint8_t pipe = 0; pipe < esb_link_pipe_count && pipe < CENTRAL_PIPE_MAX; pipe++) {
+        LOG_DBG("pipe %u heard=%d quiet=%ums connection=%d", (unsigned)pipe, (int)pipe_heard[pipe],
+                (unsigned)(now - pipe_last_heard_ms[pipe]), (int)pipe_connected[pipe]);
         if (pipe_heard[pipe]) {
             if ((now - pipe_last_heard_ms[pipe]) <= peripheral_timeout_ms) {
                 pipe_stale[pipe] = false;
