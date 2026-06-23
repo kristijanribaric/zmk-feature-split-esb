@@ -321,7 +321,7 @@ static void decision_work_fn(struct k_work *work) {
     } else if (any_pipe_needs_rendezvous()) {
         uint16_t dip_period = any_pipe_served() ? ESB_HOP_DIP_ABSENT_PERIOD : ESB_HOP_DIP_PERIOD;
         if ((++anchor_visit_window % dip_period) == 0) {
-            rendezvous_anchor = (uint8_t)((rendezvous_anchor + 1) % ESB_HOP_ANCHOR_COUNT);
+            rendezvous_anchor = hop_policy_index_next(rendezvous_anchor, ESB_HOP_ANCHOR_COUNT);
             in_anchor_visit = true;
             stage_anchor_beacon();
             apply_channel_index(rendezvous_anchor);

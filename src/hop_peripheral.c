@@ -97,15 +97,11 @@ static void keepalive_work_fn(struct k_work *work) {
                 /* Single-stepping rarely lands on a hopping central.
                  * Camp an anchor for its periodic dip, rotating the set so one jammed
                  * anchor cannot strand the rejoin. */
-                if (camp_dwell == 0) {
-                    camp_anchor = (uint8_t)((camp_anchor + 1) % ESB_HOP_ANCHOR_COUNT);
-                    camp_dwell = ESB_HOP_ANCHOR_DWELL_WINDOWS;
-                    if (hop_index != camp_anchor) {
-                        hop_index = camp_anchor;
-                        apply_hop_channel();
-                    }
-                } else {
-                    camp_dwell--;
+                hop_policy_camp_step(&camp_anchor, &camp_dwell, ESB_HOP_ANCHOR_COUNT,
+                                     ESB_HOP_ANCHOR_DWELL_WINDOWS);
+                if (hop_index != camp_anchor) {
+                    hop_index = camp_anchor;
+                    apply_hop_channel();
                 }
             } else if (hop_policy_should_hop(&bad_windows, penalty, hop_threshold)) {
                 hop_index = hop_policy_index_next(hop_index, HOP_COUNT);

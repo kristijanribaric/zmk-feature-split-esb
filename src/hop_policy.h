@@ -48,6 +48,9 @@ bool hop_policy_is_beacon(const uint8_t *data, uint8_t length);
 
 uint8_t hop_policy_index_next(uint8_t index, size_t count);
 
+void hop_policy_camp_step(uint8_t *camp_anchor, uint16_t *camp_dwell, uint8_t anchor_count,
+                          uint16_t dwell_reload);
+
 /* Both ends derive the same channel index from the central's epoch. */
 uint8_t hop_policy_channel_for_epoch(uint16_t epoch, size_t hop_count);
 
