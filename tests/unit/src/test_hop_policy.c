@@ -88,6 +88,30 @@ ZTEST(hop_policy, test_camp_step_single_anchor_stays) {
     zassert_equal(anchor, 0, "lone anchor never leaves");
 }
 
+ZTEST(hop_policy, test_score_update_accrues_and_saturates) {
+    uint8_t score = 0;
+    hop_policy_score_update(&score, 3, 1);
+    zassert_equal(score, 3, "penalty accrues");
+    hop_policy_score_update(&score, 0, 1);
+    zassert_equal(score, 2, "clean window decays one step");
+    score = 254;
+    hop_policy_score_update(&score, 5, 1);
+    zassert_equal(score, 255, "saturates at UINT8_MAX");
+    score = 0;
+    hop_policy_score_update(&score, 0, 1);
+    zassert_equal(score, 0, "decay floors at zero");
+}
+
+ZTEST(hop_policy, test_worst_channel) {
+    uint8_t mask[1] = {0x3F};
+    uint8_t bad[6] = {99, 99, 20, 10, 30, 18};
+    zassert_equal(hop_policy_worst_channel(bad, mask, 6, 2, 16), 4, "anchors 0,1 exempt, worst is 4");
+    uint8_t low[6] = {99, 99, 5, 5, 5, 5};
+    zassert_equal(hop_policy_worst_channel(low, mask, 6, 2, 16), 6, "none over threshold returns count");
+    uint8_t masked[1] = {0x0F};
+    zassert_equal(hop_policy_worst_channel(bad, masked, 6, 2, 16), 2, "inactive channel 4 skipped");
+}
+
 ZTEST(hop_policy, test_channel_for_epoch) {
     zassert_equal(hop_policy_channel_for_epoch(0, 3), 0, NULL);
     zassert_equal(hop_policy_channel_for_epoch(1, 3), 1, NULL);

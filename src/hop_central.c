@@ -198,14 +198,7 @@ static void score_current_channel(uint32_t motion, uint32_t active) {
     }
     uint8_t penalty = hop_policy_window_penalty(motion, active, pipe_rssi_dbm, rssi_floor_dbm,
                                                 PERIPHERAL_COUNT);
-    uint8_t *score = &channel_bad[hop_index];
-    if (penalty == 0) {
-        *score = (*score > CHANNEL_BAD_DECAY) ? (uint8_t)(*score - CHANNEL_BAD_DECAY) : 0;
-    } else if (*score > UINT8_MAX - penalty) {
-        *score = UINT8_MAX;
-    } else {
-        *score = (uint8_t)(*score + penalty);
-    }
+    hop_policy_score_update(&channel_bad[hop_index], penalty, CHANNEL_BAD_DECAY);
 }
 
 /* Writes pending, not active: commit_pending_mask applies it at the next hop. */
@@ -225,18 +218,10 @@ static void recompute_mask(void) {
         }
     }
     if (hop_policy_mask_active_count(pending_mask, HOP_COUNT) > min_active) {
-        int worst = -1;
-        for (size_t channel = 0; channel < HOP_COUNT; channel++) {
-            if (channel < ESB_HOP_ANCHOR_COUNT) {
-                continue;
-            }
-            if (hop_policy_mask_get(pending_mask, channel) && channel_bad[channel] >= mask_threshold
-                && (worst < 0 || channel_bad[channel] > channel_bad[worst])) {
-                worst = (int)channel;
-            }
-        }
-        if (worst >= 0) {
-            hop_policy_mask_set(pending_mask, (size_t)worst, false);
+        size_t worst = hop_policy_worst_channel(channel_bad, pending_mask, HOP_COUNT,
+                                                ESB_HOP_ANCHOR_COUNT, mask_threshold);
+        if (worst < HOP_COUNT) {
+            hop_policy_mask_set(pending_mask, worst, false);
             channel_masked_windows[worst] = 0;
             changed = true;
             LOG_INF("afh: channel %u masked, score %u, %u active", (unsigned)hop_channel_at((uint8_t)worst),

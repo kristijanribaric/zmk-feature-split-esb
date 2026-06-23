@@ -132,6 +132,38 @@ size_t hop_policy_mask_active_count(const uint8_t *mask, size_t pool_count) {
     return count;
 }
 
+void hop_policy_score_update(uint8_t *score, uint8_t penalty, uint8_t decay) {
+    assert(score != NULL);
+    if (penalty == 0) {
+        *score = (*score > decay) ? (uint8_t)(*score - decay) : 0;
+        return;
+    }
+    if (*score > UINT8_MAX - penalty) {
+        *score = UINT8_MAX;
+    } else {
+        *score = (uint8_t)(*score + penalty);
+    }
+}
+
+size_t hop_policy_worst_channel(const uint8_t *channel_bad, const uint8_t *mask, size_t pool_count,
+                                size_t anchor_count, uint16_t mask_threshold) {
+    assert(channel_bad != NULL);
+    assert(mask != NULL);
+    size_t worst = pool_count;
+    for (size_t channel = anchor_count; channel < pool_count; channel++) {
+        if (!hop_policy_mask_get(mask, channel)) {
+            continue;
+        }
+        if (channel_bad[channel] < mask_threshold) {
+            continue;
+        }
+        if (worst == pool_count || channel_bad[channel] > channel_bad[worst]) {
+            worst = channel;
+        }
+    }
+    return worst;
+}
+
 uint8_t hop_policy_channel_for_epoch_masked(uint16_t epoch, const uint8_t *mask, size_t pool_count) {
     assert(mask != NULL);
     assert(pool_count > 0);
