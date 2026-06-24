@@ -59,12 +59,12 @@ Shared (`esb_shared.dtsi`), every device:
 / {
     esb_link {
         compatible = "zmk,split-esb";
-        base-address = [E7 E7 E7 E7];
+        base-address = [E7 D3 9A 5C];
         hop-channels = [04];
         peripherals {
             mouse: peripheral_mouse {
                 pipe = <0>;
-                prefix = <0xE7>;
+                prefix = <0x4B>;
                 weight = <1>;
             };
         };
@@ -110,12 +110,12 @@ Shared (`esb_shared.dtsi`):
 / {
     esb_link {
         compatible = "zmk,split-esb";
-        base-address = [E7 E7 E7 E7];
+        base-address = [E7 D3 9A 5C];
         hop-channels = [04];
         peripherals {
             left: peripheral_left {
                 pipe = <0>;
-                prefix = <0xE7>;
+                prefix = <0x4B>;
                 weight = <1>;
             };
             right: peripheral_right {
