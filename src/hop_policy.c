@@ -8,17 +8,20 @@
 
 #include "hop_policy.h"
 
+uint8_t hop_policy_saturating_add(uint8_t value, uint8_t add) {
+    if (value > UINT8_MAX - add) {
+        return UINT8_MAX;
+    }
+    return (uint8_t)(value + add);
+}
+
 bool hop_policy_should_hop(uint8_t *bad_windows, uint8_t penalty, uint16_t threshold) {
     assert(bad_windows != NULL);
     if (penalty == 0) {
         *bad_windows = 0;
         return false;
     }
-    if (*bad_windows > UINT8_MAX - penalty) {
-        *bad_windows = UINT8_MAX;
-    } else {
-        *bad_windows = (uint8_t)(*bad_windows + penalty);
-    }
+    *bad_windows = hop_policy_saturating_add(*bad_windows, penalty);
     if (*bad_windows >= threshold) {
         *bad_windows = 0;
         return true;
@@ -138,11 +141,7 @@ void hop_policy_score_update(uint8_t *score, uint8_t penalty, uint8_t decay) {
         *score = (*score > decay) ? (uint8_t)(*score - decay) : 0;
         return;
     }
-    if (*score > UINT8_MAX - penalty) {
-        *score = UINT8_MAX;
-    } else {
-        *score = (uint8_t)(*score + penalty);
-    }
+    *score = hop_policy_saturating_add(*score, penalty);
 }
 
 size_t hop_policy_worst_channel(const uint8_t *channel_bad, const uint8_t *mask,
@@ -218,10 +217,8 @@ void hop_policy_accrue_loss(uint8_t *link_loss, size_t count, uint32_t motion_ma
         }
         if (penalty == 0) {
             link_loss[index] = 0;
-        } else if (link_loss[index] > UINT8_MAX - penalty) {
-            link_loss[index] = UINT8_MAX;
         } else {
-            link_loss[index] = (uint8_t)(link_loss[index] + penalty);
+            link_loss[index] = hop_policy_saturating_add(link_loss[index], penalty);
         }
     }
 }

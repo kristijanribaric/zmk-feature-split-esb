@@ -34,6 +34,8 @@ int8_t hop_policy_rssi_to_dbm(int8_t rssi_magnitude);
 #define HOP_POLICY_MAX_LOSS_PENALTY 4
 uint8_t hop_policy_loss_penalty(int8_t rssi_dbm, int8_t floor_dbm);
 
+uint8_t hop_policy_saturating_add(uint8_t value, uint8_t add);
+
 /* Accumulate a graded sweep penalty, returning true and clearing the streak once it
  * reaches threshold. A zero penalty (clean window) resets the streak. */
 bool hop_policy_should_hop(uint8_t *bad_windows, uint8_t penalty, uint16_t threshold);

@@ -10,6 +10,14 @@
 
 ZTEST_SUITE(hop_policy, NULL, NULL, NULL, NULL, NULL);
 
+ZTEST(hop_policy, test_saturating_add) {
+    zassert_equal(hop_policy_saturating_add(0, 0), 0, NULL);
+    zassert_equal(hop_policy_saturating_add(10, 5), 15, "adds");
+    zassert_equal(hop_policy_saturating_add(250, 5), 255, "reaches max exactly");
+    zassert_equal(hop_policy_saturating_add(250, 10), UINT8_MAX, "saturates, no wrap");
+    zassert_equal(hop_policy_saturating_add(UINT8_MAX, 1), UINT8_MAX, "stays at max");
+}
+
 ZTEST(hop_policy, test_should_hop_threshold) {
     uint8_t bad_windows = 0;
     const uint16_t threshold = 3;
