@@ -25,6 +25,10 @@ int esb_link_init(esb_link_rx_callback_t callback);
  * Peripheral: re-enable restarts hop work only. */
 int esb_link_set_enabled(bool enabled);
 
+/* Central: no-op.
+ * Peripheral: idle gates HFXO. */
+void esb_link_set_idle(bool idle);
+
 #if !defined(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 /* Peripheral only.
  * Send one packet. ack == false is fire-and-forget: no ACK, so no reverse-channel

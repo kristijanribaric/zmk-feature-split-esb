@@ -225,6 +225,16 @@ mask an anchor, so pick channels clear of local WiFi, otherwise the link rendezv
 contended spectrum. The rest of the pool carries data, AFH drops the channels that
 perform badly.
 
+## Power
+
+Peripheral follows ZMK activity. Active holds HFXO: sends start instantly.
+Idle releases crystal between transmissions: each keepalive or event
+re-acquires it, holds through retransmit cycle, lets go. First send after idle
+gap waits out crystal startup. Sleep stops radio and releases crystal before
+SYSTEM_OFF.
+
+Central listens continuously (PRX), never gates crystal.
+
 ## Load order
 
 Each step overrides the previous:

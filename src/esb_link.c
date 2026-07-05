@@ -180,6 +180,36 @@ static int hfclk_request(void) {
     return result;
 }
 
+static K_MUTEX_DEFINE(hfclk_mutex);
+static bool hfclk_held;
+
+int esb_link_hfclk_acquire(void) {
+    k_mutex_lock(&hfclk_mutex, K_FOREVER);
+    int error = 0;
+    if (!hfclk_held) {
+        error = hfclk_request();
+        if (error == 0) {
+            hfclk_held = true;
+        }
+    }
+    k_mutex_unlock(&hfclk_mutex);
+    return error;
+}
+
+void esb_link_hfclk_release(void) {
+    k_mutex_lock(&hfclk_mutex, K_FOREVER);
+    if (hfclk_held) {
+        struct onoff_manager *manager =
+            z_nrf_clock_control_get_onoff(CLOCK_CONTROL_NRF_SUBSYS_HF);
+        int release_error = onoff_release(manager);
+        if (release_error < 0) {
+            LOG_DBG("onoff_release returned %d", release_error);
+        }
+        hfclk_held = false;
+    }
+    k_mutex_unlock(&hfclk_mutex);
+}
+
 /* Push base addresses, prefix, channel, TX power into the radio.
  * set_* failures are logged and ignored.
  * The radio starts on whatever values it already held. */
@@ -217,7 +247,7 @@ int esb_link_init(esb_link_rx_callback_t callback) {
                     rx_thread_fn, NULL, NULL, NULL, CONFIG_ZMK_SPLIT_ESB_RX_THREAD_PRIORITY, 0,
                     K_NO_WAIT);
 
-    int error = hfclk_request();
+    int error = esb_link_hfclk_acquire();
     if (error) {
         LOG_ERR("HFCLK start failed (%d)", error);
         return error;
@@ -262,7 +292,13 @@ int esb_link_set_enabled(bool enabled) {
         if (flush_error) {
             LOG_DBG("esb_flush_tx returned %d", flush_error);
         }
+        esb_link_hfclk_release();
         return 0;
+    }
+    int acquire_error = esb_link_hfclk_acquire();
+    if (acquire_error) {
+        LOG_ERR("HFCLK start failed (%d)", acquire_error);
+        return acquire_error;
     }
     int start_error = esb_link_role_start();
     hop_start();

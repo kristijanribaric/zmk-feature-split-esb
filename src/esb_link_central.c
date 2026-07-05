@@ -77,6 +77,10 @@ int esb_link_role_start(void) {
     return esb_start_rx();
 }
 
+void esb_link_set_idle(bool idle) {
+    ARG_UNUSED(idle);
+}
+
 /* ISR-only, so esb_write_payload has a single caller context, no lock. */
 void esb_link_role_rx_done(void) {
     for (uint8_t pipe = 0; pipe < REPLY_PIPE_COUNT; pipe++) {

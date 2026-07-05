@@ -37,3 +37,7 @@ void esb_link_role_rx_done(void);
 
 void esb_link_mark_tx_event(void);
 uint32_t esb_link_tx_last_event_ms(void);
+
+/* Held at most once. */
+int esb_link_hfclk_acquire(void);
+void esb_link_hfclk_release(void);
