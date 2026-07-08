@@ -52,7 +52,7 @@ const uint8_t *esb_link_keepalive_bitmap(void);
 uint8_t esb_link_keepalive_battery_level(void);
 
 /* Peripheral only.
- * Central HID snapshot, beacon and HID-state packet both land here.
+ * Radio-ISR context.
  * Defined in peripheral.c. */
 void esb_link_hid_state_store(uint8_t modifiers, uint8_t indicators);
 #endif

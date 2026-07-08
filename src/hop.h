@@ -44,3 +44,7 @@ void hop_note_data_sent(void);
 
 /* Channel the radio should currently tune to. */
 uint8_t hop_current_channel(void);
+
+#if defined(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+int hop_stage_beacon(uint8_t pipe, uint8_t hid_modifiers, uint8_t hid_indicators);
+#endif

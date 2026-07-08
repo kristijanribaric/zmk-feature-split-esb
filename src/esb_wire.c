@@ -5,6 +5,7 @@
 
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/util.h>
+#include <zephyr/toolchain.h>
 
 #include "esb_keepalive.h"
 #include "esb_wire.h"

@@ -6,6 +6,7 @@
  */
 #define DT_DRV_COMPAT zmk_split_esb
 
+#include <errno.h>
 #include <string.h>
 
 #include <zephyr/devicetree.h>
@@ -127,14 +128,21 @@ static bool any_pipe_served(void) {
     return false;
 }
 
-static void stage_beacon_to(uint8_t pipe) {
+int hop_stage_beacon(uint8_t pipe, uint8_t hid_modifiers, uint8_t hid_indicators) {
+    if (pipe >= PERIPHERAL_COUNT) {
+        return -EINVAL;
+    }
     struct esb_beacon beacon = {.tag = ESB_BEACON_TAG,
                                 .epoch = hop_epoch,
                                 .rssi_dbm = pipe_rssi_dbm[pipe],
                                 .mask_version = mask_version,
-                                .hid_modifiers = zmk_split_esb_hid_modifiers(),
-                                .hid_indicators = zmk_split_esb_hid_indicators()};
-    (void)esb_link_stage_reply(pipe, (const uint8_t *)&beacon, sizeof(beacon));
+                                .hid_modifiers = hid_modifiers,
+                                .hid_indicators = hid_indicators};
+    return esb_link_stage_reply(pipe, (const uint8_t *)&beacon, sizeof(beacon));
+}
+
+static void stage_beacon_to(uint8_t pipe) {
+    (void)hop_stage_beacon(pipe, zmk_split_esb_hid_modifiers(), zmk_split_esb_hid_indicators());
 }
 
 /* Beacons the live epoch to lost pipes, so one camped on the anchor reads it
@@ -302,6 +310,14 @@ static struct k_work_delayable decision_work = Z_WORK_DELAYABLE_INITIALIZER(deci
 static void decision_work_fn(struct k_work *work) {
     ARG_UNUSED(work);
     uint32_t heard = (uint32_t)atomic_set(&pipe_heard_mask, 0);
+
+    /* Fixed channel ticks only to refresh the beacon's HID state. */
+    if (HOP_COUNT <= 1) {
+        stage_beacon(heard);
+        k_work_reschedule(&decision_work, K_MSEC(decision_ms));
+        return;
+    }
+
     uint32_t motion = (uint32_t)atomic_set(&pipe_motion_mask, 0);
     uint32_t active = (uint32_t)atomic_set(&pipe_active_mask, 0);
 
@@ -370,39 +386,35 @@ static void decision_work_fn(struct k_work *work) {
 }
 
 void hop_start(void) {
-    if (HOP_COUNT <= 1) {
-        return;
-    }
     k_work_reschedule(&decision_work, K_MSEC(decision_ms));
 }
 
 void hop_stop(void) {
-    if (HOP_COUNT <= 1) {
-        return;
-    }
     k_work_cancel_delayable(&decision_work);
 }
 
 bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rssi) {
+    if (pipe >= PERIPHERAL_COUNT) {
+        return false;
+    }
     bool keepalive = esb_keepalive_matches(data, length);
-    if (pipe < PERIPHERAL_COUNT && !keepalive) {
+    if (!keepalive) {
         /* Store before the motion bit: the decision tick reads pipe_rssi_dbm only when
          * that bit is set, so publish the value first. */
         pipe_rssi_dbm[pipe] = hop_policy_rssi_to_dbm(rssi);
     }
+    /* Beacon refresh reads it on a fixed channel too. */
+    atomic_or(&pipe_heard_mask, BIT(pipe));
     if (HOP_COUNT <= 1) {
         return false;
     }
-    if (pipe < PERIPHERAL_COUNT) {
-        atomic_or(&pipe_heard_mask, BIT(pipe));
-        if (keepalive) {
-            if (hop_policy_keepalive_is_active(esb_keepalive_state(data))) {
-                atomic_or(&pipe_active_mask, BIT(pipe));
-            }
-        } else {
+    if (keepalive) {
+        if (hop_policy_keepalive_is_active(esb_keepalive_state(data))) {
             atomic_or(&pipe_active_mask, BIT(pipe));
-            atomic_or(&pipe_motion_mask, BIT(pipe));
         }
+    } else {
+        atomic_or(&pipe_active_mask, BIT(pipe));
+        atomic_or(&pipe_motion_mask, BIT(pipe));
     }
     return false;
 }

@@ -211,9 +211,11 @@ first keepalive re-presses it.
 ## HID state
 
 Peripherals mirror central's held modifiers and host lock indicators (caps,
-num, scroll), for display widgets. Updates arrive on change, every beacon
-repeats them, a rejoining half catches up by itself. Indicators need
-`CONFIG_ZMK_HID_INDICATORS` on the central.
+num, scroll), for display widgets. Central beacon carries them.
+A change stages a beacon at once.
+A periodic refresh repeats it, so a rejoining half catches up by itself.
+Fixed-channel links beacon too.
+Indicators need `CONFIG_ZMK_HID_INDICATORS` on the central.
 
 ## Channel hopping
 

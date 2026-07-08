@@ -18,9 +18,8 @@
 
 #include <zmk_split_esb.h>
 
-#include "esb_link.h"
 #include "esb_link_internal.h"
-#include "esb_wire.h"
+#include "hop.h"
 
 LOG_MODULE_DECLARE(zmk_split_esb, CONFIG_ZMK_SPLIT_ESB_LOG_LEVEL);
 
@@ -39,16 +38,11 @@ static void hid_state_work_fn(struct k_work *work) {
     ARG_UNUSED(work);
     uint8_t modifiers = (uint8_t)zmk_hid_get_explicit_mods();
     uint8_t indicators = hid_state_indicators();
-    struct esb_wire_hid_state packet = {
-        .tag = ESB_WIRE_HID_STATE_TAG,
-        .modifiers = modifiers,
-        .indicators = indicators,
-    };
     for (uint8_t pipe = 0; pipe < esb_link_pipe_count && pipe < ESB_LINK_PIPE_MAX; pipe++) {
         if (sent_modifiers[pipe] == modifiers && sent_indicators[pipe] == indicators) {
             continue;
         }
-        int error = esb_link_stage_reply(pipe, (const uint8_t *)&packet, sizeof(packet));
+        int error = hop_stage_beacon(pipe, modifiers, indicators);
         if (error) {
             LOG_DBG("HID state to pipe %u not staged (%d)", pipe, error);
             continue;
