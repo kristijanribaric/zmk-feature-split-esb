@@ -58,6 +58,8 @@ void hop_policy_camp_step(uint8_t *camp_anchor, uint16_t *camp_dwell, uint8_t an
 /* Both ends derive the same channel index from the central's epoch. */
 uint8_t hop_policy_channel_for_epoch(uint16_t epoch, size_t hop_count);
 
+uint8_t hop_policy_anchor_default_index(size_t slot, size_t pool_count, size_t anchor_count);
+
 /* Active-channel bitmap over the pool: bit set means the channel is in use. */
 bool hop_policy_mask_get(const uint8_t *mask, size_t index);
 void hop_policy_mask_set(uint8_t *mask, size_t index, bool active);

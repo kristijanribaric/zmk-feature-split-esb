@@ -88,6 +88,13 @@ uint8_t hop_policy_channel_for_epoch(uint16_t epoch, size_t hop_count) {
     return (uint8_t)(epoch % hop_count);
 }
 
+uint8_t hop_policy_anchor_default_index(size_t slot, size_t pool_count, size_t anchor_count) {
+    assert(anchor_count > 0);
+    assert(anchor_count <= pool_count);
+    assert(slot < anchor_count);
+    return (uint8_t)((pool_count * (2 * slot + 1)) / (2 * anchor_count));
+}
+
 bool hop_policy_mask_get(const uint8_t *mask, size_t index) {
     assert(mask != NULL);
     return (mask[index / 8] & (uint8_t)(1u << (index % 8))) != 0;

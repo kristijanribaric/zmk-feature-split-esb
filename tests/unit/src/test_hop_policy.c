@@ -4,9 +4,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <zephyr/sys/util.h>
 #include <zephyr/ztest.h>
 
 #include "hop_policy.h"
+
+#define ANCHOR_POOL_MAX 101
+#define ANCHOR_COUNT_DEFAULT 3
 
 ZTEST_SUITE(hop_policy, NULL, NULL, NULL, NULL, NULL);
 
@@ -157,6 +161,32 @@ ZTEST(hop_policy, test_channel_for_epoch) {
     zassert_equal(hop_policy_channel_for_epoch(3, 3), 0, "wraps");
     zassert_equal(hop_policy_channel_for_epoch(7, 3), 1, NULL);
     zassert_equal(hop_policy_channel_for_epoch(5, 1), 0, "single channel always 0");
+}
+
+ZTEST(hop_policy, test_anchor_default_index) {
+    zassert_equal(hop_policy_anchor_default_index(0, 10, 3), 1, "pool of 10, first slice midpoint");
+    zassert_equal(hop_policy_anchor_default_index(1, 10, 3), 5, "second slice midpoint");
+    zassert_equal(hop_policy_anchor_default_index(2, 10, 3), 8, "third slice midpoint");
+    zassert_equal(hop_policy_anchor_default_index(0, 1, 1), 0, "lone channel anchors itself");
+    zassert_equal(hop_policy_anchor_default_index(0, 3, 3), 0, "anchors fill the pool");
+    zassert_equal(hop_policy_anchor_default_index(2, 3, 3), 2, "last slot takes the last channel");
+}
+
+ZTEST(hop_policy, test_anchor_default_index_spreads) {
+    for (size_t pool_count = 1; pool_count <= ANCHOR_POOL_MAX; pool_count++) {
+        size_t anchor_count = MIN((size_t)ANCHOR_COUNT_DEFAULT, pool_count);
+        uint8_t minimum_gap = (uint8_t)(pool_count / anchor_count);
+        uint8_t previous = 0;
+        for (size_t slot = 0; slot < anchor_count; slot++) {
+            uint8_t index = hop_policy_anchor_default_index(slot, pool_count, anchor_count);
+            zassert_true(index < pool_count, "anchor index stays inside the pool");
+            if (slot > 0) {
+                zassert_true(index > previous, "anchors never share a channel");
+                zassert_true(index - previous >= minimum_gap, "anchors sit a slice apart");
+            }
+            previous = index;
+        }
+    }
 }
 
 ZTEST(hop_policy, test_mask_get_and_count) {

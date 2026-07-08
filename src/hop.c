@@ -16,6 +16,7 @@
 
 #include "hop.h"
 #include "hop_internal.h"
+#include "hop_policy.h"
 
 static const uint8_t hop_channels[] = DT_INST_PROP(0, hop_channels);
 BUILD_ASSERT(HOP_COUNT >= 1, "hop-channels needs at least one channel");
@@ -86,10 +87,9 @@ static void resolve_anchors(void) {
         }
     }
 #else
-    /* Adjacent anchors carry no frequency diversity. */
     for (uint8_t slot = 0; slot < ESB_HOP_ANCHOR_COUNT; slot++) {
-        anchor_indices[slot] =
-            (uint8_t)((HOP_COUNT * (2u * slot + 1u)) / (2u * ESB_HOP_ANCHOR_COUNT));
+        anchor_indices[slot] = hop_policy_anchor_default_index(slot, HOP_COUNT,
+                                                               ESB_HOP_ANCHOR_COUNT);
     }
 #endif
     anchors_resolved = true;
