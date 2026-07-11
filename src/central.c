@@ -17,6 +17,7 @@
 #include <zmk/events/battery_state_changed.h>
 #include <zmk/events/split_esb_peripheral_changed.h>
 #include <zmk/pointing/input_split.h>
+#include <zmk/split/central.h>
 #include <zmk/split/transport/central.h>
 #include <zmk/split/transport/types.h>
 
@@ -31,6 +32,11 @@ BUILD_ASSERT(sizeof(struct zmk_split_transport_peripheral_event) <= CONFIG_ZMK_S
              "peripheral event does not fit in one ESB payload; raise ZMK_SPLIT_ESB_MAX_PAYLOAD");
 BUILD_ASSERT(sizeof(struct zmk_split_transport_central_command) <= CONFIG_ZMK_SPLIT_ESB_MAX_PAYLOAD,
              "central command does not fit in one ESB payload; raise ZMK_SPLIT_ESB_MAX_PAYLOAD");
+
+#define ESB_PERIPHERAL_COUNT DT_CHILD_NUM_STATUS_OKAY(DT_INST_CHILD(0, peripherals))
+BUILD_ASSERT(!IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS)
+                 || ZMK_SPLIT_CENTRAL_PERIPHERAL_COUNT >= ESB_PERIPHERAL_COUNT,
+             "ESB pipes exceed ZMK's source-id buffer; unset ZMK_SPLIT_PERIPHERAL_HID_INDICATORS");
 
 static bool transport_enabled;
 static zmk_split_transport_central_status_changed_cb_t status_cb;

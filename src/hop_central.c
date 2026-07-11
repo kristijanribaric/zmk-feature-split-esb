@@ -50,8 +50,10 @@ static const uint8_t min_active = DT_INST_PROP(0, hop_min_active);
 #define MASK_UPDATE_REPEAT_WINDOWS 4
 #define MASK_REFRESH_WINDOWS 32
 #define CHANNEL_BAD_DECAY 1
-BUILD_ASSERT(ESB_MASK_UPDATE_LENGTH <= CONFIG_ZMK_SPLIT_ESB_MAX_PAYLOAD,
-             "mask update does not fit in one ESB payload");
+BUILD_ASSERT(ESB_MASK_UPDATE_LENGTH <= ESB_LINK_CONTROL_MAX_LENGTH,
+             "mask update does not fit one control latch; raise ESB_LINK_CONTROL_MAX_LENGTH");
+BUILD_ASSERT(ESB_BEACON_LENGTH <= ESB_LINK_CONTROL_MAX_LENGTH,
+             "beacon does not fit one control latch; raise ESB_LINK_CONTROL_MAX_LENGTH");
 static uint8_t hop_epoch;
 static uint8_t pipe_loss[PERIPHERAL_COUNT];
 static int8_t pipe_rssi_dbm[PERIPHERAL_COUNT];
@@ -87,7 +89,10 @@ static void clear_pipe_loss(void) {
     }
 }
 
-static bool pipe_needs_rendezvous(uint8_t pipe) {
+bool hop_pipe_needs_rendezvous(uint8_t pipe) {
+    if (pipe >= PERIPHERAL_COUNT) {
+        return true;
+    }
     return pipe_silent[pipe] >= ESB_HOP_LOST_WINDOWS;
 }
 
@@ -111,7 +116,7 @@ static void clear_silence_for_heard(uint32_t heard) {
 
 static bool any_pipe_needs_rendezvous(void) {
     for (uint8_t pipe = 0; pipe < PERIPHERAL_COUNT; pipe++) {
-        if (pipe_needs_rendezvous(pipe)) {
+        if (hop_pipe_needs_rendezvous(pipe)) {
             return true;
         }
     }
@@ -121,7 +126,7 @@ static bool any_pipe_needs_rendezvous(void) {
 /* A still-served pipe pays dip jitter, so slow the rendezvous cadence only when one exists. */
 static bool any_pipe_served(void) {
     for (uint8_t pipe = 0; pipe < PERIPHERAL_COUNT; pipe++) {
-        if (!pipe_needs_rendezvous(pipe)) {
+        if (!hop_pipe_needs_rendezvous(pipe)) {
             return true;
         }
     }
@@ -138,7 +143,8 @@ int hop_stage_beacon(uint8_t pipe, uint8_t hid_modifiers, uint8_t hid_indicators
                                 .mask_version = mask_version,
                                 .hid_modifiers = hid_modifiers,
                                 .hid_indicators = hid_indicators};
-    return esb_link_stage_reply(pipe, (const uint8_t *)&beacon, sizeof(beacon));
+    return esb_link_latch_control(pipe, ESB_LINK_CONTROL_BEACON, (const uint8_t *)&beacon,
+                                  sizeof(beacon));
 }
 
 static void stage_beacon_to(uint8_t pipe) {
@@ -149,7 +155,7 @@ static void stage_beacon_to(uint8_t pipe) {
  * from its poll ACK and rejoins the hop. */
 static void stage_anchor_beacon(void) {
     for (uint8_t pipe = 0; pipe < PERIPHERAL_COUNT; pipe++) {
-        if (pipe_needs_rendezvous(pipe)) {
+        if (hop_pipe_needs_rendezvous(pipe)) {
             stage_beacon_to(pipe);
         }
     }
@@ -289,10 +295,11 @@ static void stage_mask_update(void) {
     struct esb_mask_update update = {.tag = ESB_MASK_UPDATE_TAG, .version = mask_version};
     memcpy(update.mask, mask, ESB_HOP_MASK_BYTES);
     for (uint8_t pipe = 0; pipe < PERIPHERAL_COUNT; pipe++) {
-        if (pipe_needs_rendezvous(pipe)) {
+        if (hop_pipe_needs_rendezvous(pipe)) {
             continue; /* rejoins via anchor beacon, not a stale-channel mask reply */
         }
-        (void)esb_link_stage_reply(pipe, (const uint8_t *)&update, ESB_MASK_UPDATE_LENGTH);
+        (void)esb_link_latch_control(pipe, ESB_LINK_CONTROL_MASK, (const uint8_t *)&update,
+                                     ESB_MASK_UPDATE_LENGTH);
     }
 }
 
@@ -311,8 +318,8 @@ static void decision_work_fn(struct k_work *work) {
     ARG_UNUSED(work);
     uint32_t heard = (uint32_t)atomic_set(&pipe_heard_mask, 0);
 
-    /* Fixed channel ticks only to refresh the beacon's HID state. */
     if (HOP_COUNT <= 1) {
+        update_pipe_silence(heard);
         stage_beacon(heard);
         k_work_reschedule(&decision_work, K_MSEC(decision_ms));
         return;
@@ -339,7 +346,7 @@ static void decision_work_fn(struct k_work *work) {
     recompute_mask();
     uint32_t rejoining = 0;
     for (uint8_t pipe = 0; pipe < PERIPHERAL_COUNT; pipe++) {
-        if ((heard & BIT(pipe)) && pipe_needs_rendezvous(pipe)) {
+        if ((heard & BIT(pipe)) && hop_pipe_needs_rendezvous(pipe)) {
             rejoining |= BIT(pipe);
         }
     }
