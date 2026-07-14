@@ -8,6 +8,13 @@
 #include <stdint.h>
 
 #define ESB_BEACON_TAG 0xFE
+#define ESB_BEACON_PEER_COUNT 2
+
+struct esb_beacon_peer {
+    uint8_t battery;
+    int8_t rssi_dbm;
+} __attribute__((packed));
+
 struct esb_beacon {
     uint8_t tag;
     uint8_t epoch;
@@ -15,9 +22,10 @@ struct esb_beacon {
     uint8_t mask_version;
     uint8_t hid_modifiers;
     uint8_t hid_indicators;
+    struct esb_beacon_peer peers[ESB_BEACON_PEER_COUNT];
 } __attribute__((packed));
 
-#define ESB_BEACON_LENGTH 6
+#define ESB_BEACON_LENGTH (6 + ESB_BEACON_PEER_COUNT * 2)
 _Static_assert(sizeof(struct esb_beacon) == ESB_BEACON_LENGTH, "beacon wire size");
 
 /* Keepalive state byte values: whether the peripheral is actively polling. */
@@ -86,6 +94,13 @@ uint8_t hop_policy_channel_for_epoch_masked(uint16_t epoch, const uint8_t *mask,
 /* Central hop decision: weighted sum of per-peripheral link loss, true at threshold. */
 bool hop_policy_hop_vote(const uint8_t *link_loss, const uint8_t *weights, size_t count,
                          uint16_t threshold);
+
+/* Boot survey verdict: clear mask bits of channels at or above threshold energy,
+ * worst-first while more than min_active stay set. Anchor channels are exempt.
+ * Returns the count masked. */
+size_t hop_policy_survey_mask(const int8_t *energy_dbm, size_t pool_count,
+                              const uint8_t *anchor_mask, size_t min_active,
+                              int8_t threshold_dbm, uint8_t *mask);
 
 /* Per window, accrue graded per-pipe loss from poll traffic, so only an actively-polling
  * pipe whose link is degrading drives a hop, and the weaker it is the sooner.

@@ -326,3 +326,26 @@ ZTEST(hop_policy, test_should_beacon) {
 
     zassert_true(hop_policy_should_beacon(2, &beaconed, &repeats, 4), "new change re-arms");
 }
+
+ZTEST(hop_policy, test_survey_mask) {
+    uint8_t mask[1] = {0x3F};
+    uint8_t anchor_mask[1] = {0x01};
+    int8_t energy_dbm[6] = {-40, -50, -80, -55, -90, -85};
+
+    size_t masked = hop_policy_survey_mask(energy_dbm, 6, anchor_mask, 3, -60, mask);
+    zassert_equal(masked, 2, "two busy non-anchor channels masked");
+    zassert_true(hop_policy_mask_get(mask, 0), "busy anchor stays");
+    zassert_false(hop_policy_mask_get(mask, 1), "busiest non-anchor masked");
+    zassert_false(hop_policy_mask_get(mask, 3), "second busy masked");
+    zassert_true(hop_policy_mask_get(mask, 2), "quiet channel stays");
+}
+
+ZTEST(hop_policy, test_survey_mask_min_active_floor) {
+    uint8_t mask[1] = {0x0F};
+    uint8_t anchor_mask[1] = {0x00};
+    int8_t energy_dbm[4] = {-10, -10, -10, -10};
+
+    size_t masked = hop_policy_survey_mask(energy_dbm, 4, anchor_mask, 3, -60, mask);
+    zassert_equal(masked, 1, "floor keeps min_active channels");
+    zassert_equal(hop_policy_mask_active_count(mask, 4), 3, "three stay active");
+}

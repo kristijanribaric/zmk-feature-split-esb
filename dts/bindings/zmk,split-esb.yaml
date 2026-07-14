@@ -83,6 +83,13 @@ properties:
       Central hop trigger. A served peripheral whose motion arrives weaker than this (dBm)
       counts the window as degraded, so the link hops toward a better-propagating channel.
       Set near where the link actually fails, or it hops chasing a merely-distant peer.
+  survey-threshold-dbm:
+    type: int
+    default: -65
+    description: |
+      Central boot survey. Pool channels whose ambient energy samples at or above
+      this (dBm) start masked, anchors exempt, hop-min-active respected.
+      The retest ladder restores a channel benched by a transient burst.
   idle-keepalive-ms:
     type: int
     default: 128

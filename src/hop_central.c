@@ -18,6 +18,7 @@
 
 #include "esb_keepalive.h"
 #include "esb_link.h"
+#include "esb_survey.h"
 #include "hop.h"
 #include "hop_internal.h"
 #include "hop_policy.h"
@@ -35,6 +36,7 @@ static const uint16_t decision_ms = DT_INST_PROP(0, idle_keepalive_ms);
 /* One peripheral poll: shorter and a camped half is never heard during the dip. */
 static const uint16_t anchor_dwell_ms = DT_INST_PROP(0, hop_window_ms);
 static const int8_t rssi_floor_dbm = DT_INST_PROP(0, rssi_floor_dbm);
+static const int8_t survey_threshold_dbm = DT_INST_PROP(0, survey_threshold_dbm);
 static const uint16_t mask_threshold = DT_INST_PROP(0, hop_mask_threshold);
 static const uint16_t restore_windows = DT_INST_PROP(0, hop_restore_windows);
 static const uint8_t min_active = DT_INST_PROP(0, hop_min_active);
@@ -133,6 +135,9 @@ static bool any_pipe_served(void) {
     return false;
 }
 
+BUILD_ASSERT(PERIPHERAL_COUNT <= ESB_BEACON_PEER_COUNT,
+             "more peripherals than the beacon roster holds; raise ESB_BEACON_PEER_COUNT");
+
 int hop_stage_beacon(uint8_t pipe, uint8_t hid_modifiers, uint8_t hid_indicators) {
     if (pipe >= PERIPHERAL_COUNT) {
         return -EINVAL;
@@ -143,6 +148,10 @@ int hop_stage_beacon(uint8_t pipe, uint8_t hid_modifiers, uint8_t hid_indicators
                                 .mask_version = mask_version,
                                 .hid_modifiers = hid_modifiers,
                                 .hid_indicators = hid_indicators};
+    for (uint8_t peer = 0; peer < PERIPHERAL_COUNT; peer++) {
+        beacon.peers[peer].battery = esb_central_battery_level(peer);
+        beacon.peers[peer].rssi_dbm = pipe_rssi_dbm[peer];
+    }
     return esb_link_latch_control(pipe, ESB_LINK_CONTROL_BEACON, (const uint8_t *)&beacon,
                                   sizeof(beacon));
 }
@@ -236,13 +245,16 @@ static void score_current_channel(uint32_t motion, uint32_t active) {
 }
 
 /* Writes pending, not active: commit_pending_mask applies it at the next hop. */
-static void recompute_mask(void) {
+static void recompute_mask(uint32_t active) {
     ensure_mask();
     bool changed = false;
     for (size_t channel = 0; channel < HOP_COUNT; channel++) {
         if (hop_policy_mask_get(pending_mask, channel)) {
-            /* Full restore period survived unmasked: proven clean. */
-            if (channel_active_windows[channel] < restore_windows) {
+            /* Restore period served live resets the retest backoff.
+             * Unvisited pool time proves nothing, a loitering bad channel
+             * would reset its own escalation. */
+            bool served = channel == hop_index && active != 0;
+            if (served && channel_active_windows[channel] < restore_windows) {
                 if (++channel_active_windows[channel] >= restore_windows) {
                     channel_retest_level[channel] = 0;
                 }
@@ -343,7 +355,7 @@ static void decision_work_fn(struct k_work *work) {
     LOG_DBG("hop: heard=%02x motion=%02x active=%02x", (unsigned)heard, (unsigned)motion,
             (unsigned)active);
     score_current_channel(motion, active);
-    recompute_mask();
+    recompute_mask(active);
     uint32_t rejoining = 0;
     for (uint8_t pipe = 0; pipe < PERIPHERAL_COUNT; pipe++) {
         if ((heard & BIT(pipe)) && hop_pipe_needs_rendezvous(pipe)) {
@@ -398,6 +410,36 @@ void hop_start(void) {
 
 void hop_stop(void) {
     k_work_cancel_delayable(&decision_work);
+}
+
+void hop_survey(void) {
+    if (HOP_COUNT <= 1) {
+        return;
+    }
+    ensure_mask();
+    uint8_t channels[HOP_COUNT];
+    int8_t energy_dbm[HOP_COUNT];
+    for (uint8_t index = 0; index < HOP_COUNT; index++) {
+        channels[index] = hop_channel_at(index);
+    }
+    esb_survey_run(channels, HOP_COUNT, energy_dbm);
+    size_t masked = hop_policy_survey_mask(energy_dbm, HOP_COUNT, anchor_mask, min_active,
+                                           survey_threshold_dbm, pending_mask);
+    if (masked == 0) {
+        return;
+    }
+    for (size_t channel = 0; channel < HOP_COUNT; channel++) {
+        if (!hop_policy_mask_get(pending_mask, channel)) {
+            LOG_INF("survey: channel %u busy (%d dBm), masked",
+                    (unsigned)hop_channel_at((uint8_t)channel), (int)energy_dbm[channel]);
+        }
+    }
+    /* Pre-traffic: adopt now and land epoch 0 off the busy spectrum.
+     * esb_link_init tunes to hop_current_channel afterwards. */
+    memcpy(active_mask, pending_mask, ESB_HOP_MASK_BYTES);
+    mask_version++;
+    mask_update_repeats = MASK_UPDATE_REPEAT_WINDOWS;
+    hop_index = hop_policy_channel_for_epoch_masked(hop_epoch, active_mask, HOP_COUNT);
 }
 
 bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rssi) {
@@ -459,6 +501,20 @@ uint8_t zmk_split_esb_pipe_count(void) {
 }
 
 int8_t zmk_split_esb_pipe_rssi_dbm(uint8_t pipe) {
+    if (pipe >= PERIPHERAL_COUNT) {
+        return 0;
+    }
+    return pipe_rssi_dbm[pipe];
+}
+
+uint8_t zmk_split_esb_peer_battery(uint8_t pipe) {
+    if (pipe >= PERIPHERAL_COUNT) {
+        return ESB_KEEPALIVE_BATTERY_UNKNOWN;
+    }
+    return esb_central_battery_level(pipe);
+}
+
+int8_t zmk_split_esb_peer_rssi_dbm(uint8_t pipe) {
     if (pipe >= PERIPHERAL_COUNT) {
         return 0;
     }

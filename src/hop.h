@@ -49,4 +49,8 @@ uint8_t hop_current_channel(void);
 int hop_stage_beacon(uint8_t pipe, uint8_t hid_modifiers, uint8_t hid_indicators);
 
 bool hop_pipe_needs_rendezvous(uint8_t pipe);
+
+/* Boot energy sweep seeds the channel mask.
+ * Radio must be idle: run before esb_link_init, HFCLK running. */
+void hop_survey(void);
 #endif

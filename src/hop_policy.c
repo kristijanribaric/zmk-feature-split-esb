@@ -230,6 +230,36 @@ void hop_policy_accrue_loss(uint8_t *link_loss, size_t count, uint32_t motion_ma
     }
 }
 
+size_t hop_policy_survey_mask(const int8_t *energy_dbm, size_t pool_count,
+                              const uint8_t *anchor_mask, size_t min_active,
+                              int8_t threshold_dbm, uint8_t *mask) {
+    assert(energy_dbm != NULL);
+    assert(anchor_mask != NULL);
+    assert(mask != NULL);
+    size_t masked = 0;
+    while (hop_policy_mask_active_count(mask, pool_count) > min_active) {
+        size_t worst = pool_count;
+        for (size_t channel = 0; channel < pool_count; channel++) {
+            if (hop_policy_mask_get(anchor_mask, channel) ||
+                !hop_policy_mask_get(mask, channel)) {
+                continue;
+            }
+            if (energy_dbm[channel] < threshold_dbm) {
+                continue;
+            }
+            if (worst == pool_count || energy_dbm[channel] > energy_dbm[worst]) {
+                worst = channel;
+            }
+        }
+        if (worst == pool_count) {
+            break;
+        }
+        hop_policy_mask_set(mask, worst, false);
+        masked++;
+    }
+    return masked;
+}
+
 bool hop_policy_should_beacon(uint8_t epoch, uint8_t *beaconed_epoch, uint8_t *repeats_left,
                               uint8_t repeat_windows) {
     assert(beaconed_epoch != NULL);
