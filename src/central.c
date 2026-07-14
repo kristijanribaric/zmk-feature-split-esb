@@ -26,6 +26,7 @@
 #include "esb_keepalive.h"
 #include "esb_link.h"
 #include "esb_link_internal.h"
+#include "hop.h"
 #include "esb_sensor_sync.h"
 #include "esb_wire.h"
 
@@ -456,6 +457,11 @@ static int central_init(void) {
         tracked_battery_levels[pipe] = ESB_KEEPALIVE_BATTERY_UNKNOWN;
     }
     k_work_reschedule(&staleness_work, K_MSEC(STALENESS_CHECK_PERIOD_MS));
+    int clock_error = esb_link_hfclk_acquire();
+    if (clock_error) {
+        return clock_error;
+    }
+    hop_survey();
     return esb_link_init(central_on_rx);
 }
 

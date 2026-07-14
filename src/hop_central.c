@@ -18,6 +18,7 @@
 
 #include "esb_keepalive.h"
 #include "esb_link.h"
+#include "esb_survey.h"
 #include "hop.h"
 #include "hop_internal.h"
 #include "hop_policy.h"
@@ -35,6 +36,7 @@ static const uint16_t decision_ms = DT_INST_PROP(0, idle_keepalive_ms);
 /* One peripheral poll: shorter and a camped half is never heard during the dip. */
 static const uint16_t anchor_dwell_ms = DT_INST_PROP(0, hop_window_ms);
 static const int8_t rssi_floor_dbm = DT_INST_PROP(0, rssi_floor_dbm);
+static const int8_t survey_threshold_dbm = DT_INST_PROP(0, survey_threshold_dbm);
 static const uint16_t mask_threshold = DT_INST_PROP(0, hop_mask_threshold);
 static const uint16_t restore_windows = DT_INST_PROP(0, hop_restore_windows);
 static const uint8_t min_active = DT_INST_PROP(0, hop_min_active);
@@ -408,6 +410,36 @@ void hop_start(void) {
 
 void hop_stop(void) {
     k_work_cancel_delayable(&decision_work);
+}
+
+void hop_survey(void) {
+    if (HOP_COUNT <= 1) {
+        return;
+    }
+    ensure_mask();
+    uint8_t channels[HOP_COUNT];
+    int8_t energy_dbm[HOP_COUNT];
+    for (uint8_t index = 0; index < HOP_COUNT; index++) {
+        channels[index] = hop_channel_at(index);
+    }
+    esb_survey_run(channels, HOP_COUNT, energy_dbm);
+    size_t masked = hop_policy_survey_mask(energy_dbm, HOP_COUNT, anchor_mask, min_active,
+                                           survey_threshold_dbm, pending_mask);
+    if (masked == 0) {
+        return;
+    }
+    for (size_t channel = 0; channel < HOP_COUNT; channel++) {
+        if (!hop_policy_mask_get(pending_mask, channel)) {
+            LOG_INF("survey: channel %u busy (%d dBm), masked",
+                    (unsigned)hop_channel_at((uint8_t)channel), (int)energy_dbm[channel]);
+        }
+    }
+    /* Pre-traffic: adopt now and land epoch 0 off the busy spectrum.
+     * esb_link_init tunes to hop_current_channel afterwards. */
+    memcpy(active_mask, pending_mask, ESB_HOP_MASK_BYTES);
+    mask_version++;
+    mask_update_repeats = MASK_UPDATE_REPEAT_WINDOWS;
+    hop_index = hop_policy_channel_for_epoch_masked(hop_epoch, active_mask, HOP_COUNT);
 }
 
 bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rssi) {

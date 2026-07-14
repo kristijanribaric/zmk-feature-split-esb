@@ -95,6 +95,13 @@ uint8_t hop_policy_channel_for_epoch_masked(uint16_t epoch, const uint8_t *mask,
 bool hop_policy_hop_vote(const uint8_t *link_loss, const uint8_t *weights, size_t count,
                          uint16_t threshold);
 
+/* Boot survey verdict: clear mask bits of channels at or above threshold energy,
+ * worst-first while more than min_active stay set. Anchor channels are exempt.
+ * Returns the count masked. */
+size_t hop_policy_survey_mask(const int8_t *energy_dbm, size_t pool_count,
+                              const uint8_t *anchor_mask, size_t min_active,
+                              int8_t threshold_dbm, uint8_t *mask);
+
 /* Per window, accrue graded per-pipe loss from poll traffic, so only an actively-polling
  * pipe whose link is degrading drives a hop, and the weaker it is the sooner.
  * Motion (bit in motion_mask) adds hop_policy_loss_penalty(rssi_dbm[pipe]). An active pipe
