@@ -51,7 +51,10 @@ size_t esb_wire_encode_event(uint8_t *out, size_t out_cap,
     __ASSERT_NO_MSG(out != NULL);
     __ASSERT_NO_MSG(event != NULL);
     uint8_t type = (uint8_t)event->type;
-    uint8_t size = (type < ARRAY_SIZE(payload_size)) ? payload_size[type] : 0;
+    if (type >= ARRAY_SIZE(payload_size) || payload_size[type] == 0) {
+        return 0;
+    }
+    uint8_t size = payload_size[type];
     if (out_cap < (size_t)(WIRE_PAYLOAD_OFFSET + size)) {
         return 0;
     }

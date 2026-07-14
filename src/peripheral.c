@@ -6,6 +6,8 @@
  */
 #define DT_DRV_COMPAT zmk_split_esb
 
+#include <errno.h>
+
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/init.h>
@@ -155,6 +157,9 @@ static int peripheral_report_event(const struct zmk_split_transport_peripheral_e
     }
     uint8_t wire[ESB_WIRE_MAX_EVENT_SIZE];
     size_t length = esb_wire_encode_event(wire, sizeof(wire), event);
+    if (length == 0) {
+        return -ENOTSUP;
+    }
     return esb_link_send(wire, length, event_wants_ack(event));
 }
 
