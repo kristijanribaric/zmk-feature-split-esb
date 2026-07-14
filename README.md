@@ -42,6 +42,9 @@ CONFIG_ESB_MAX_PAYLOAD_LENGTH=48
 Central also sets `CONFIG_ZMK_SPLIT_ROLE_CENTRAL=y`. Peripheral leaves it unset.
 
 Set `CONFIG_ESB_MAX_PAYLOAD_LENGTH` to at least `ZMK_SPLIT_ESB_MAX_PAYLOAD` (48).
+Raise `CONFIG_ESB_TX_FIFO_SIZE` to 16 on a peripheral with bursty senders (a
+chattery encoder): the default 8 drops events at the source under a burst.
+Both are NCS symbols, their defaults win over module Kconfig on parse order.
 Module defaults it, but sdk-nrf default (32) can win on Kconfig parse order, so set
 it explicitly on every device. Build assert catches value too small for largest
 split message.
