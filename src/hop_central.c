@@ -434,11 +434,12 @@ void hop_survey(void) {
                     (unsigned)hop_channel_at((uint8_t)channel), (int)energy_dbm[channel]);
         }
     }
-    /* Pre-traffic: adopt now and land epoch 0 off the busy spectrum.
-     * esb_link_init tunes to hop_current_channel afterwards. */
+    /* Pre-traffic: adopt in place, esb_link_init tunes to hop_current_channel.
+     * Epoch bump makes a peripheral re-adopt, staying at 0 reads as no change. */
     memcpy(active_mask, pending_mask, ESB_HOP_MASK_BYTES);
     mask_version++;
     mask_update_repeats = MASK_UPDATE_REPEAT_WINDOWS;
+    hop_epoch++;
     hop_index = hop_policy_channel_for_epoch_masked(hop_epoch, active_mask, HOP_COUNT);
 }
 

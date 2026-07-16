@@ -35,9 +35,7 @@ static uint8_t adopted_epoch;
 static int8_t uplink_rssi_dbm;
 static uint8_t active_mask[ESB_HOP_MASK_BYTES];
 static bool mask_ready;
-static uint8_t adopted_mask_version;
 static uint8_t staged_mask[ESB_HOP_MASK_BYTES];
-static uint8_t staged_mask_version;
 static atomic_t mask_update_seen;
 static struct esb_beacon_peer peer_table[ESB_BEACON_PEER_COUNT];
 
@@ -52,16 +50,16 @@ static void ensure_mask(void) {
 }
 
 /* Read under the lock the radio ISR stages with.
- * True only when the mask actually changed. */
+ * True only when the mask actually changed.
+ * Content compare, not version: central reboot resets version numbering. */
 static bool adopt_staged_mask(void) {
     if (atomic_get(&mask_update_seen) == 0) {
         return false;
     }
     unsigned int key = irq_lock();
-    bool changed = staged_mask_version != adopted_mask_version;
+    bool changed = memcmp(active_mask, staged_mask, ESB_HOP_MASK_BYTES) != 0;
     if (changed) {
         memcpy(active_mask, staged_mask, ESB_HOP_MASK_BYTES);
-        adopted_mask_version = staged_mask_version;
     }
     irq_unlock(key);
     return changed;
@@ -151,7 +149,6 @@ bool hop_consume_rx(uint8_t pipe, const uint8_t *data, uint8_t length, int8_t rs
     if (esb_is_mask_update(data, length)) {
         const struct esb_mask_update *update = (const struct esb_mask_update *)data;
         memcpy(staged_mask, update->mask, ESB_HOP_MASK_BYTES);
-        staged_mask_version = update->version; /* applied under lock in keepalive_work */
         atomic_set(&mask_update_seen, 1);
         return true;
     }
